@@ -155,6 +155,15 @@ function createSavedGameRecord(title, questions, id = createId()) {
   };
 }
 
+function mapTemplateRowToSavedGame(row) {
+  return {
+    id: row.id,
+    title: String(row.title || "").trim(),
+    questions: Array.isArray(row.questions_json) ? deepClone(row.questions_json) : [],
+    updatedAt: row.updated_at || row.created_at || new Date().toISOString(),
+  };
+}
+
 function createSampleGameRecord() {
   return createSavedGameRecord("Sample Trivia Round", DEFAULT_QUESTION_SET, "sample-trivia-round");
 }
@@ -504,6 +513,25 @@ function buildDemoAdapter() {
       writeDb(db);
     },
 
+    async listSavedGames() {
+      const saved = safeJsonParse(window.localStorage.getItem(`${HOST_STUDIO_STORAGE_KEY}-shared-games`), []);
+      return syncSampleSavedGames(saved);
+    },
+
+    async saveSavedGame(record) {
+      const existing = safeJsonParse(window.localStorage.getItem(`${HOST_STUDIO_STORAGE_KEY}-shared-games`), []);
+      const others = Array.isArray(existing) ? existing.filter((game) => game.id !== record.id) : [];
+      const next = syncSampleSavedGames([record, ...others]);
+      window.localStorage.setItem(`${HOST_STUDIO_STORAGE_KEY}-shared-games`, JSON.stringify(next));
+      return record;
+    },
+
+    async deleteSavedGame(gameId) {
+      const existing = safeJsonParse(window.localStorage.getItem(`${HOST_STUDIO_STORAGE_KEY}-shared-games`), []);
+      const next = syncSampleSavedGames((Array.isArray(existing) ? existing : []).filter((game) => game.id !== gameId));
+      window.localStorage.setItem(`${HOST_STUDIO_STORAGE_KEY}-shared-games`, JSON.stringify(next));
+    },
+
     subscribe(gameId, callback) {
       const handler = async (event) => {
         if (event.key !== CHANNEL_KEY) {
@@ -675,6 +703,51 @@ function buildSupabaseAdapter(client) {
       );
     },
 
+    async listSavedGames() {
+      const { data, error } = await client
+        .from("quiz_templates")
+        .select("*")
+        .order("updated_at", { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      return syncSampleSavedGames((data || []).map(mapTemplateRowToSavedGame));
+    },
+
+    async saveSavedGame(record) {
+      const payload = {
+        id: record.id === "sample-trivia-round" ? undefined : record.id,
+        title: record.title,
+        questions_json: record.questions,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await client
+        .from("quiz_templates")
+        .upsert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return mapTemplateRowToSavedGame(data);
+    },
+
+    async deleteSavedGame(gameId) {
+      if (gameId === "sample-trivia-round") {
+        return;
+      }
+
+      const { error } = await client.from("quiz_templates").delete().eq("id", gameId);
+      if (error) {
+        throw error;
+      }
+    },
+
     subscribe(gameId, callback) {
       const channel = client
         .channel(`pulse-trivia-${gameId}`)
@@ -703,6 +776,23 @@ function buildSupabaseAdapter(client) {
 }
 
 state.adapter = hasSupabaseConfig ? buildSupabaseAdapter(supabaseClient) : buildDemoAdapter();
+
+async function refreshSavedGamesLibrary() {
+  if (!state.adapter?.listSavedGames) {
+    state.savedGames = syncSampleSavedGames(state.savedGames);
+    persistDraftState();
+    return;
+  }
+
+  try {
+    state.savedGames = await state.adapter.listSavedGames();
+    persistDraftState();
+  } catch (error) {
+    console.error(error);
+    state.savedGames = syncSampleSavedGames(state.savedGames);
+    persistDraftState();
+  }
+}
 
 function renderLanding() {
   updateHeroTitle();
@@ -1236,13 +1326,22 @@ function switchToAddNewQuestion() {
   showToast("Now adding a brand-new question.");
 }
 
-function deleteSavedGame(gameId) {
-  state.savedGames = state.savedGames.filter((game) => game.id !== gameId);
-  if (state.editingGameId === gameId) {
-    resetEditorState();
+async function deleteSavedGame(gameId) {
+  try {
+    if (state.adapter?.deleteSavedGame) {
+      await state.adapter.deleteSavedGame(gameId);
+    }
+
+    state.savedGames = state.savedGames.filter((game) => game.id !== gameId);
+    if (state.editingGameId === gameId) {
+      resetEditorState();
+    }
+    persistDraftState();
+    renderLanding();
+  } catch (error) {
+    console.error(error);
+    showToast(`Could not delete quiz: ${error.message}`);
   }
-  persistDraftState();
-  renderLanding();
 }
 
 async function handleLaunchSavedGame(gameId) {
@@ -2412,7 +2511,7 @@ function handleQuestionUpdate() {
   showToast("Question updated. Click Save quiz changes.");
 }
 
-function handleSaveGameSetup() {
+async function handleSaveGameSetup() {
   cacheLandingInputs();
 
   if (!state.gameTitleDraft) {
@@ -2431,12 +2530,18 @@ function handleSaveGameSetup() {
     state.editingGameId || createId(),
   );
 
-  state.savedGames = upsertSavedGameRecord(record);
-  state.editingGameId = record.id;
-  state.draftQuestions = deepClone(record.questions);
-  persistDraftState();
-  renderLanding();
-  showToast("Quiz saved.");
+  try {
+    const savedRecord = state.adapter?.saveSavedGame ? await state.adapter.saveSavedGame(record) : record;
+    state.savedGames = upsertSavedGameRecord(savedRecord);
+    state.editingGameId = savedRecord.id;
+    state.draftQuestions = deepClone(savedRecord.questions);
+    persistDraftState();
+    renderLanding();
+    showToast("Quiz saved.");
+  } catch (error) {
+    console.error(error);
+    showToast(`Could not save quiz: ${error.message}`);
+  }
 }
 
 async function launchGameFromTemplate(template, hostName) {
@@ -2697,6 +2802,8 @@ async function leaveRoom() {
 }
 
 async function restoreSession() {
+  await refreshSavedGamesLibrary();
+
   if (!state.roomCode) {
     renderLanding();
     return;
