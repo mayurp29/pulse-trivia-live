@@ -2286,7 +2286,20 @@ function startTimerLoop(question, isHost) {
     return;
   }
 
+  if (state.currentTimerId) {
+    window.clearInterval(state.currentTimerId);
+    state.currentTimerId = null;
+  }
+
   state.currentTimerId = window.setInterval(async () => {
+    if (!state.game || state.game.phase !== "question" || state.game.current_question_index < 0) {
+      if (state.currentTimerId) {
+        window.clearInterval(state.currentTimerId);
+        state.currentTimerId = null;
+      }
+      return;
+    }
+
     const timerValue = document.getElementById("timer-value");
     const timerFill = document.getElementById("timer-fill");
     const remaining = computeRemainingSeconds(state.game, question);
@@ -2300,6 +2313,10 @@ function startTimerLoop(question, isHost) {
     }
 
     if (isHost && remaining <= 0 && !state.autoRevealLock) {
+      if (state.currentTimerId) {
+        window.clearInterval(state.currentTimerId);
+        state.currentTimerId = null;
+      }
       state.autoRevealLock = true;
       try {
         await revealQuestion();
