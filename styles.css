@@ -1,17 +1,17 @@
 :root {
-  --bg: #f4efe6;
-  --panel: rgba(255, 252, 246, 0.86);
-  --panel-strong: #fffdf8;
-  --line: rgba(84, 54, 33, 0.12);
-  --ink: #2a1e14;
-  --muted: #6c5847;
-  --accent: #f05d23;
-  --accent-deep: #a63d1d;
-  --accent-soft: rgba(240, 93, 35, 0.14);
-  --blue: #2155cd;
+  --bg: #f5efe6;
+  --panel: rgba(255, 252, 247, 0.9);
+  --panel-strong: #fffdfa;
+  --line: rgba(30, 44, 86, 0.12);
+  --ink: #17213b;
+  --muted: #5c657d;
+  --accent: #c99133;
+  --accent-deep: #8f6620;
+  --accent-soft: rgba(201, 145, 51, 0.16);
+  --blue: #213a76;
   --green: #198754;
-  --gold: #d39c1f;
-  --shadow: 0 22px 40px rgba(73, 40, 12, 0.12);
+  --gold: #c99133;
+  --shadow: 0 22px 40px rgba(23, 33, 59, 0.12);
   --radius-xl: 28px;
   --radius-lg: 20px;
   --radius-md: 14px;
@@ -29,9 +29,9 @@ body {
   font-family: "Outfit", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at top left, rgba(240, 93, 35, 0.16), transparent 28%),
-    radial-gradient(circle at top right, rgba(33, 85, 205, 0.14), transparent 26%),
-    linear-gradient(180deg, #f5ecdf 0%, #efe4d4 100%);
+    radial-gradient(circle at top left, rgba(201, 145, 51, 0.18), transparent 26%),
+    radial-gradient(circle at top right, rgba(33, 58, 118, 0.14), transparent 28%),
+    linear-gradient(180deg, #f5eee4 0%, #ece4d9 100%);
 }
 
 body {
@@ -58,9 +58,31 @@ button {
 .hero {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 24px;
-  margin-bottom: 28px;
+  margin-bottom: 32px;
+  padding: 24px 28px;
+  border-radius: 32px;
+  background: linear-gradient(135deg, rgba(255, 253, 249, 0.94), rgba(247, 240, 230, 0.92));
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.hero-logo {
+  width: clamp(110px, 12vw, 160px);
+  height: auto;
+  object-fit: contain;
+}
+
+.hero-copy-block {
+  display: flex;
+  flex-direction: column;
 }
 
 .eyebrow {
@@ -68,7 +90,7 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-size: 0.75rem;
-  color: var(--accent-deep);
+  color: var(--blue);
   font-weight: 700;
 }
 
@@ -92,6 +114,7 @@ h1 {
   color: var(--muted);
   font-size: 1.05rem;
   line-height: 1.6;
+  margin-bottom: 0;
 }
 
 .mode-chip,
@@ -205,8 +228,8 @@ textarea {
 
 .btn-primary {
   color: #fff;
-  background: linear-gradient(135deg, var(--accent) 0%, #ff844f 100%);
-  box-shadow: 0 10px 18px rgba(240, 93, 35, 0.24);
+  background: linear-gradient(135deg, var(--blue) 0%, #3655a7 100%);
+  box-shadow: 0 10px 18px rgba(33, 58, 118, 0.24);
 }
 
 .btn-secondary {
@@ -232,7 +255,7 @@ textarea {
 }
 
 .notice {
-  background: rgba(33, 85, 205, 0.08);
+  background: rgba(33, 58, 118, 0.08);
   color: #183266;
 }
 
@@ -323,15 +346,15 @@ textarea {
 }
 
 .leader-list li.is-first {
-  background: linear-gradient(135deg, rgba(211, 156, 31, 0.24), rgba(255, 255, 255, 0.82));
-  border-color: rgba(211, 156, 31, 0.3);
+  background: linear-gradient(135deg, rgba(201, 145, 51, 0.24), rgba(255, 255, 255, 0.82));
+  border-color: rgba(201, 145, 51, 0.32);
 }
 
 .timer-card {
   padding: 22px;
   border-radius: var(--radius-xl);
-  background: linear-gradient(135deg, #251911 0%, #402818 100%);
-  color: #fff4ea;
+  background: linear-gradient(135deg, #17213b 0%, #213a76 100%);
+  color: #fff8ef;
 }
 
 .timer-value {
@@ -352,7 +375,7 @@ textarea {
 .timer-bar span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #ffcf5d 0%, #ff7a45 100%);
+  background: linear-gradient(90deg, #f6c15d 0%, #c99133 100%);
 }
 
 .question-title {
@@ -408,6 +431,42 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.saved-game-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.saved-game-card {
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.saved-game-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.saved-game-head h3 {
+  margin-bottom: 6px;
+}
+
+.saved-game-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.saved-game-actions {
+  margin-top: 16px;
 }
 
 .question-card {
@@ -481,7 +540,7 @@ textarea {
   width: 100%;
   border-radius: 32px;
   border: 1px solid var(--line);
-  background: rgba(255, 252, 246, 0.92);
+  background: rgba(255, 252, 247, 0.95);
   box-shadow: var(--shadow);
 }
 
@@ -650,6 +709,12 @@ textarea {
 
   .hero {
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hero-brand {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .presentation-page {

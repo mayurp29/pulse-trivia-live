@@ -1,6 +1,6 @@
 import { APP_CONFIG } from "./config.js";
 
-const DRAFT_STORAGE_KEY = "pulse-trivia-host-draft-v1";
+const HOST_STUDIO_STORAGE_KEY = "pulse-trivia-host-studio-v2";
 const urlParams = new URLSearchParams(window.location.search);
 const requestedRoomCode = String(urlParams.get("room") || "").trim().toUpperCase();
 const requestedScreen = String(urlParams.get("screen") || "").trim().toLowerCase();
@@ -71,10 +71,12 @@ const state = {
   unsubscribe: null,
   autoRevealLock: false,
   lastSubmittedQuestionIndex: Number(window.localStorage.getItem("pulse-trivia-submitted-index") || -1),
+  savedGames: savedDraftState.savedGames,
   draftQuestions: savedDraftState.draftQuestions,
   questionDraft: savedDraftState.questionDraft,
   hostDraftName: savedDraftState.hostDraftName,
   gameTitleDraft: savedDraftState.gameTitleDraft,
+  editingGameId: savedDraftState.editingGameId,
 };
 
 const el = {
@@ -138,34 +140,50 @@ function deepClone(value) {
   return structuredClone(value);
 }
 
+function createSavedGameRecord(title, questions, id = createId()) {
+  return {
+    id,
+    title,
+    questions: deepClone(questions),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 function loadSavedDraftState() {
+  const sampleGame = createSavedGameRecord("Sample Trivia Round", DEFAULT_QUESTION_SET, "sample-trivia-round");
   const fallback = {
-    draftQuestions: structuredClone(DEFAULT_QUESTION_SET),
+    savedGames: [sampleGame],
+    draftQuestions: [],
     questionDraft: createEmptyDraft(),
     hostDraftName: "",
-    gameTitleDraft: "Team Trivia Night",
+    gameTitleDraft: "",
+    editingGameId: "",
   };
-  const saved = safeJsonParse(window.localStorage.getItem(DRAFT_STORAGE_KEY), null);
+  const saved = safeJsonParse(window.localStorage.getItem(HOST_STUDIO_STORAGE_KEY), null);
   if (!saved) {
     return fallback;
   }
 
   return {
+    savedGames: Array.isArray(saved.savedGames) && saved.savedGames.length ? saved.savedGames : fallback.savedGames,
     draftQuestions: Array.isArray(saved.draftQuestions) ? saved.draftQuestions : fallback.draftQuestions,
     questionDraft: saved.questionDraft ? { ...createEmptyDraft(saved.questionDraft.type), ...saved.questionDraft } : fallback.questionDraft,
     hostDraftName: String(saved.hostDraftName || ""),
-    gameTitleDraft: String(saved.gameTitleDraft || "Team Trivia Night"),
+    gameTitleDraft: String(saved.gameTitleDraft || ""),
+    editingGameId: String(saved.editingGameId || ""),
   };
 }
 
 function persistDraftState() {
   window.localStorage.setItem(
-    DRAFT_STORAGE_KEY,
+    HOST_STUDIO_STORAGE_KEY,
     JSON.stringify({
+      savedGames: state.savedGames,
       draftQuestions: state.draftQuestions,
       questionDraft: state.questionDraft,
       hostDraftName: state.hostDraftName,
       gameTitleDraft: state.gameTitleDraft,
+      editingGameId: state.editingGameId,
     }),
   );
 }
@@ -682,6 +700,32 @@ function renderLanding() {
   }
 
   const draft = state.questionDraft;
+  const isEditing = Boolean(state.editingGameId);
+  const savedGamesMarkup = state.savedGames.length
+    ? state.savedGames
+        .map(
+          (game) => `
+            <article class="saved-game-card">
+              <div class="saved-game-head">
+                <div>
+                  <h3>${escapeHtml(game.title)}</h3>
+                  <div class="saved-game-meta">
+                    <span>${game.questions.length} questions</span>
+                    <span>Updated ${formatShortDate(game.updatedAt)}</span>
+                  </div>
+                </div>
+                <span class="tag">Reusable</span>
+              </div>
+              <div class="button-row saved-game-actions">
+                <button class="btn btn-primary saved-game-launch" data-game-id="${game.id}" type="button">Launch this game</button>
+                <button class="btn btn-secondary saved-game-edit" data-game-id="${game.id}" type="button">Edit</button>
+                <button class="btn btn-ghost saved-game-delete" data-game-id="${game.id}" type="button">Delete</button>
+              </div>
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="empty">No saved games yet. Create your first game setup.</div>`;
   const questionsMarkup = state.draftQuestions.length
     ? state.draftQuestions
         .map(
@@ -722,51 +766,54 @@ function renderLanding() {
       <section class="card card-pad stack">
         <div class="section-title">
           <h2>Host a game</h2>
-          <span class="tag">Guided setup</span>
+          <span class="tag">Game library</span>
         </div>
         <p class="muted">
-          Add questions with the form, optionally attach an image, and create a room when you're ready.
+          Save game setups, launch any one into a live room, and keep multiple trivia formats ready for future events.
         </p>
 
-        <form id="host-form" class="form-row">
-          <div class="split-row">
-            <label>
-              Host name
-              <input id="host-name" name="hostName" value="${escapeHtml(state.hostDraftName)}" placeholder="Host name" required />
-            </label>
-            <label>
-              Game title
-              <input id="game-title" name="gameTitle" value="${escapeHtml(state.gameTitleDraft)}" required />
-            </label>
-          </div>
+        <form id="launch-form" class="form-row">
+          <label>
+            Host name
+            <input id="host-name" name="hostName" value="${escapeHtml(state.hostDraftName)}" placeholder="Host name" required />
+          </label>
           <div class="metric-grid">
             <div class="metric">
-              <div class="metric-label">Questions Ready</div>
-              <div class="metric-value">${state.draftQuestions.length}</div>
+              <div class="metric-label">Saved Games</div>
+              <div class="metric-value">${state.savedGames.length}</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Live Rooms</div>
+              <div class="metric-value">Multiple</div>
             </div>
             <div class="metric">
               <div class="metric-label">Fast Bonus Window</div>
               <div class="metric-value">5s</div>
             </div>
-            <div class="metric">
-              <div class="metric-label">Images</div>
-              <div class="metric-value">Optional</div>
-            </div>
           </div>
           <div class="button-row">
-            <button class="btn btn-primary" type="submit">Create trivia room</button>
-            <button class="btn btn-secondary" id="load-samples" type="button">Load sample questions</button>
-            <button class="btn btn-ghost" id="clear-questions" type="button">Clear all questions</button>
+            <button class="btn btn-primary" id="create-game-setup" type="button">${isEditing ? "Editing setup below" : "Create new game setup"}</button>
+            <button class="btn btn-secondary" id="load-samples" type="button">Load sample setup</button>
           </div>
         </form>
 
         <div class="divider"></div>
-
         <div class="section-title">
-          <h3>Add a question</h3>
-          <span class="tag">No JSON needed</span>
+          <h3>Saved games</h3>
+          <span class="tag">${state.savedGames.length} total</span>
+        </div>
+        <div class="saved-game-list">${savedGamesMarkup}</div>
+
+        <div class="divider"></div>
+        <div class="section-title">
+          <h3>${isEditing ? "Edit game setup" : "Create game setup"}</h3>
+          <span class="tag">${isEditing ? "Save changes" : "Build and save"}</span>
         </div>
         <form id="question-builder-form" class="form-row">
+          <label>
+            Game title
+            <input id="game-title" name="gameTitle" value="${escapeHtml(state.gameTitleDraft)}" placeholder="AAHOA Board Trivia Round" required />
+          </label>
           <div class="split-row">
             <label>
               Question type
@@ -842,6 +889,8 @@ function renderLanding() {
 
           <div class="button-row">
             <button class="btn btn-primary" type="submit">Add question</button>
+            <button class="btn btn-secondary" id="save-game-setup" type="button">${isEditing ? "Save game changes" : "Save this game"}</button>
+            <button class="btn btn-ghost" id="clear-questions" type="button">Reset editor</button>
           </div>
         </form>
 
@@ -884,20 +933,27 @@ function renderLanding() {
     </div>
   `;
 
-  document.getElementById("host-form").addEventListener("submit", handleHostCreate);
+  document.getElementById("launch-form").addEventListener("submit", (event) => event.preventDefault());
   document.getElementById("join-form").addEventListener("submit", handleJoinGame);
   document.getElementById("question-builder-form").addEventListener("submit", handleQuestionAdd);
   document.getElementById("draft-type").addEventListener("change", handleDraftTypeChange);
   document.getElementById("draft-image").addEventListener("change", handleDraftImageSelect);
+  document.getElementById("save-game-setup").addEventListener("click", handleSaveGameSetup);
+  document.getElementById("create-game-setup").addEventListener("click", () => {
+    cacheLandingInputs();
+    startNewGameSetup();
+  });
   document.getElementById("load-samples").addEventListener("click", () => {
     cacheLandingInputs();
-    state.draftQuestions = deepClone(DEFAULT_QUESTION_SET);
+    state.savedGames = upsertSavedGameRecord(
+      createSavedGameRecord("Sample Trivia Round", DEFAULT_QUESTION_SET, "sample-trivia-round"),
+    );
     persistDraftState();
     renderLanding();
   });
   document.getElementById("clear-questions").addEventListener("click", () => {
     cacheLandingInputs();
-    state.draftQuestions = [];
+    resetEditorState();
     persistDraftState();
     renderLanding();
   });
@@ -922,12 +978,101 @@ function renderLanding() {
       renderLanding();
     });
   });
+
+  document.querySelectorAll(".saved-game-edit").forEach((button) => {
+    button.addEventListener("click", () => {
+      loadGameIntoEditor(button.dataset.gameId || "");
+    });
+  });
+
+  document.querySelectorAll(".saved-game-launch").forEach((button) => {
+    button.addEventListener("click", () => {
+      handleLaunchSavedGame(button.dataset.gameId || "");
+    });
+  });
+
+  document.querySelectorAll(".saved-game-delete").forEach((button) => {
+    button.addEventListener("click", () => {
+      deleteSavedGame(button.dataset.gameId || "");
+    });
+  });
 }
 
 function cacheLandingInputs() {
   state.hostDraftName = document.getElementById("host-name")?.value.trim() || state.hostDraftName;
   state.gameTitleDraft = document.getElementById("game-title")?.value.trim() || state.gameTitleDraft;
   persistDraftState();
+}
+
+function formatShortDate(value) {
+  if (!value) {
+    return "recently";
+  }
+
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function resetEditorState() {
+  state.draftQuestions = [];
+  state.questionDraft = createEmptyDraft();
+  state.gameTitleDraft = "";
+  state.editingGameId = "";
+}
+
+function startNewGameSetup() {
+  resetEditorState();
+  persistDraftState();
+  renderLanding();
+}
+
+function upsertSavedGameRecord(record) {
+  const others = state.savedGames.filter((game) => game.id !== record.id);
+  return [record, ...others].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+}
+
+function loadGameIntoEditor(gameId) {
+  const game = state.savedGames.find((entry) => entry.id === gameId);
+  if (!game) {
+    showToast("Saved game not found.");
+    return;
+  }
+
+  state.editingGameId = game.id;
+  state.gameTitleDraft = game.title;
+  state.draftQuestions = deepClone(game.questions);
+  state.questionDraft = createEmptyDraft();
+  persistDraftState();
+  renderLanding();
+}
+
+function deleteSavedGame(gameId) {
+  state.savedGames = state.savedGames.filter((game) => game.id !== gameId);
+  if (state.editingGameId === gameId) {
+    resetEditorState();
+  }
+  persistDraftState();
+  renderLanding();
+}
+
+async function handleLaunchSavedGame(gameId) {
+  const game = state.savedGames.find((entry) => entry.id === gameId);
+  if (!game) {
+    showToast("Saved game not found.");
+    return;
+  }
+
+  const hostName = (document.getElementById("host-name")?.value || state.hostDraftName || "").trim();
+  if (!hostName) {
+    showToast("Enter a host name before launching a game.");
+    return;
+  }
+
+  state.hostDraftName = hostName;
+  persistDraftState();
+  await launchGameFromTemplate(game, hostName);
 }
 
 function renderGame() {
@@ -1717,31 +1862,40 @@ function handleQuestionAdd(event) {
   renderLanding();
 }
 
-async function handleHostCreate(event) {
-  event.preventDefault();
-  const form = new FormData(event.currentTarget);
-  const hostName = String(form.get("hostName") || "").trim();
-  const gameTitle = String(form.get("gameTitle") || "").trim();
-  state.hostDraftName = hostName;
-  state.gameTitleDraft = gameTitle;
-  persistDraftState();
+function handleSaveGameSetup() {
+  cacheLandingInputs();
 
-  if (!hostName || !gameTitle) {
-    showToast("Please enter a host name and game title.");
+  if (!state.gameTitleDraft) {
+    showToast("Please enter a game title before saving.");
     return;
   }
 
   if (!state.draftQuestions.length) {
-    showToast("Add at least one question before creating the room.");
+    showToast("Add at least one question before saving this game.");
     return;
   }
 
-  const questions = state.draftQuestions.map((question, index) => normalizeQuestion(question, index));
+  const record = createSavedGameRecord(
+    state.gameTitleDraft,
+    state.draftQuestions.map((question, index) => normalizeQuestion(question, index)),
+    state.editingGameId || createId(),
+  );
+
+  state.savedGames = upsertSavedGameRecord(record);
+  state.editingGameId = record.id;
+  state.draftQuestions = deepClone(record.questions);
+  persistDraftState();
+  renderLanding();
+  showToast("Game setup saved.");
+}
+
+async function launchGameFromTemplate(template, hostName) {
+  const questions = template.questions.map((question, index) => normalizeQuestion(question, index));
 
   try {
     const game = await state.adapter.createGame({
       hostName,
-      title: gameTitle,
+      title: template.title,
       questions,
     });
 
@@ -1755,6 +1909,7 @@ async function handleHostCreate(event) {
     await refreshSnapshot();
     subscribeToGame();
     renderGame();
+    openPresentationWindow(game.room_code);
   } catch (error) {
     console.error(error);
     showToast(`Could not create room: ${error.message}`);
