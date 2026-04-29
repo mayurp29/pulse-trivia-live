@@ -1377,6 +1377,7 @@ function renderPresentationMode() {
         </div>
       </section>
     `;
+    wirePresentationActions();
     return;
   }
 
