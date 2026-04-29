@@ -27,7 +27,7 @@ const DEFAULT_QUESTION_SET = [
     prompt: "Name the person in the photo.",
     acceptedAnswers: ["Serena Williams", "Serena"],
     timeLimitSec: 15,
-    imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Serena%20Williams%202004.jpg",
+    imageUrl: "https://commons.wikimedia.org/w/index.php?title=Special:Redirect/file/Serena%20Williams%202004.jpg&width=700",
   },
   {
     id: "q4",
@@ -154,8 +154,18 @@ function createSavedGameRecord(title, questions, id = createId()) {
   };
 }
 
+function createSampleGameRecord() {
+  return createSavedGameRecord("Sample Trivia Round", DEFAULT_QUESTION_SET, "sample-trivia-round");
+}
+
+function syncSampleSavedGames(savedGames) {
+  const sampleGame = createSampleGameRecord();
+  const others = Array.isArray(savedGames) ? savedGames.filter((game) => game.id !== sampleGame.id) : [];
+  return [sampleGame, ...others].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+}
+
 function loadSavedDraftState() {
-  const sampleGame = createSavedGameRecord("Sample Trivia Round", DEFAULT_QUESTION_SET, "sample-trivia-round");
+  const sampleGame = createSampleGameRecord();
   const fallback = {
     savedGames: [sampleGame],
     draftQuestions: [],
@@ -170,7 +180,10 @@ function loadSavedDraftState() {
   }
 
   return {
-    savedGames: Array.isArray(saved.savedGames) && saved.savedGames.length ? saved.savedGames : fallback.savedGames,
+    savedGames:
+      Array.isArray(saved.savedGames) && saved.savedGames.length
+        ? syncSampleSavedGames(saved.savedGames)
+        : fallback.savedGames,
     draftQuestions: Array.isArray(saved.draftQuestions) ? saved.draftQuestions : fallback.draftQuestions,
     questionDraft: saved.questionDraft ? { ...createEmptyDraft(saved.questionDraft.type), ...saved.questionDraft } : fallback.questionDraft,
     hostDraftName: String(saved.hostDraftName || ""),
@@ -992,9 +1005,7 @@ function renderLanding() {
   });
   document.getElementById("load-samples").addEventListener("click", () => {
     cacheLandingInputs();
-    state.savedGames = upsertSavedGameRecord(
-      createSavedGameRecord("Sample Trivia Round", DEFAULT_QUESTION_SET, "sample-trivia-round"),
-    );
+    state.savedGames = upsertSavedGameRecord(createSampleGameRecord());
     persistDraftState();
     renderLanding();
   });
@@ -2330,6 +2341,8 @@ async function startQuestion(questionIndex) {
       question_started_at: new Date().toISOString(),
       reveal_at: null,
     });
+    await refreshSnapshot();
+    renderGame();
   } catch (error) {
     console.error(error);
     showToast(`Could not start question: ${error.message}`);
@@ -2394,6 +2407,8 @@ async function revealQuestion() {
       status: "reveal",
       reveal_at: new Date().toISOString(),
     });
+    await refreshSnapshot();
+    renderGame();
   } catch (error) {
     console.error(error);
     showToast(`Could not reveal answers: ${error.message}`);
@@ -2406,6 +2421,8 @@ async function finishGame() {
       phase: "finished",
       status: "finished",
     });
+    await refreshSnapshot();
+    renderGame();
   } catch (error) {
     console.error(error);
     showToast(`Could not finish game: ${error.message}`);
