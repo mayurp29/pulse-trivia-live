@@ -1147,7 +1147,7 @@ function renderHostQuestionPresentation(question, remainingSeconds, timerPercent
 }
 
 function renderHostRevealPresentation(question, rankedPlayers) {
-  const topThree = rankedPlayers.slice(0, 3);
+  const topFive = rankedPlayers.slice(0, 5);
   return `
     <div class="presentation-slide reveal-slide">
       <div class="presentation-topline">
@@ -1160,21 +1160,28 @@ function renderHostRevealPresentation(question, rankedPlayers) {
         <p><strong>Correct answer:</strong> ${escapeHtml(formatAnswerList(question))}</p>
         <p><strong>Host cue:</strong> Review the answer, then move to the next question when you're ready.</p>
       </div>
-      <div class="presentation-podium">
-        ${topThree.length
-          ? topThree
-              .map(
-                (player, index) => `
-                  <div class="podium-card podium-${index + 1}">
-                    <div class="metric-label">#${index + 1}</div>
-                    <div class="podium-name">${escapeHtml(player.display_name)}</div>
-                    <div class="podium-score">${player.score} pts</div>
-                  </div>
-                `,
-              )
-              .join("")
-          : `<div class="empty">No scores yet.</div>`}
+      <div class="section-title">
+        <h3>Top 5 leaderboard</h3>
+        <span class="tag">After question ${state.game.current_question_index + 1}</span>
       </div>
+      ${
+        topFive.length
+          ? `
+              <ol class="leader-list reveal-leader-list">
+                ${topFive
+                  .map(
+                    (player, index) => `
+                      <li class="${index === 0 ? "is-first" : ""}">
+                        <span>${index + 1}. ${escapeHtml(player.display_name)}</span>
+                        <strong>${player.score} pts</strong>
+                      </li>
+                    `,
+                  )
+                  .join("")}
+              </ol>
+            `
+          : `<div class="empty">No scores yet.</div>`
+      }
       ${renderHostQuestionControls(question, 0)}
     </div>
   `;
