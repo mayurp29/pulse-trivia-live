@@ -976,6 +976,7 @@ function renderLanding() {
           <div class="button-row">
             <button class="btn btn-primary" type="submit">${isEditingQuestion ? "Save question changes" : "Add question"}</button>
             <button class="btn btn-secondary" id="save-game-setup" type="button">${isEditing ? "Save quiz changes" : "Save quiz"}</button>
+            ${isEditingQuestion ? `<button class="btn btn-secondary" id="add-as-new-question" type="button">Add as new question</button>` : ""}
             ${isEditingQuestion ? `<button class="btn btn-secondary" id="cancel-question-edit" type="button">Cancel question edit</button>` : ""}
             <button class="btn btn-ghost" id="clear-questions" type="button">Reset editor</button>
           </div>
@@ -1099,6 +1100,11 @@ function renderLanding() {
   if (cancelQuestionEditButton) {
     cancelQuestionEditButton.addEventListener("click", cancelQuestionEdit);
   }
+
+  const addAsNewQuestionButton = document.getElementById("add-as-new-question");
+  if (addAsNewQuestionButton) {
+    addAsNewQuestionButton.addEventListener("click", switchToAddNewQuestion);
+  }
 }
 
 function cacheLandingInputs() {
@@ -1211,6 +1217,17 @@ function cancelQuestionEdit() {
   persistDraftState();
   renderLanding();
   showToast("Question edit canceled.");
+}
+
+function switchToAddNewQuestion() {
+  readDraftForm();
+  state.editingQuestionIndex = -1;
+  persistDraftState();
+  renderLanding();
+  window.requestAnimationFrame(() => {
+    document.getElementById("draft-prompt")?.focus();
+  });
+  showToast("Now adding a brand-new question.");
 }
 
 function deleteSavedGame(gameId) {
