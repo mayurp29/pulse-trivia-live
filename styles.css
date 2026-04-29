@@ -750,6 +750,61 @@ textarea {
   font-size: 1.05rem;
 }
 
+.podium-wrap {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.podium-slot {
+  position: relative;
+  padding: 18px 16px;
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 240, 230, 0.96));
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.podium-slot.is-first {
+  min-height: 220px;
+  background: linear-gradient(180deg, rgba(255, 245, 215, 0.98), rgba(240, 212, 144, 0.78));
+}
+
+.podium-slot.is-second {
+  min-height: 180px;
+}
+
+.podium-slot.is-third {
+  min-height: 160px;
+}
+
+.podium-place {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 7px 14px;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: rgba(23, 33, 59, 0.08);
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+}
+
+.podium-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.podium-points {
+  margin-top: 8px;
+  color: var(--blue);
+  font-weight: 700;
+}
+
 .image-upload-card {
   padding: 14px;
   border-radius: var(--radius-lg);
@@ -791,5 +846,9 @@ textarea {
 
   .presentation-page {
     flex-direction: column;
+  }
+
+  .podium-wrap {
+    grid-template-columns: 1fr;
   }
 }

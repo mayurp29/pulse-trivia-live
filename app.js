@@ -27,7 +27,7 @@ const DEFAULT_QUESTION_SET = [
     prompt: "Name the person in the photo.",
     acceptedAnswers: ["Serena Williams", "Serena"],
     timeLimitSec: 15,
-    imageUrl: "",
+    imageUrl: "https://commons.wikimedia.org/wiki/Special:FilePath/Serena%20Williams%202004.jpg",
   },
   {
     id: "q4",
@@ -328,9 +328,10 @@ function escapeHtml(value) {
 }
 
 function updateHeroTitle() {
-  const title = state.game?.title || state.joinPreviewTitle || "AAHOA Trivia";
+  const title = state.game?.title || state.joinPreviewTitle || "";
   if (el.heroTitle) {
     el.heroTitle.textContent = title;
+    el.heroTitle.style.display = title ? "" : "none";
   }
 }
 
@@ -1260,12 +1261,91 @@ function renderLeaderboard(rankedPlayers, currentPlayerId) {
   `;
 }
 
+function renderFullStandings(rankedPlayers, currentPlayerId = "") {
+  if (!rankedPlayers.length) {
+    return `<div class="empty">No final standings yet.</div>`;
+  }
+
+  return `
+    <ol class="leader-list final-standings-list">
+      ${rankedPlayers
+        .map((player, index) => {
+          const marker = player.id === currentPlayerId ? " (You)" : "";
+          const leaderClass = index === 0 ? "is-first" : "";
+          return `
+            <li class="${leaderClass}">
+              <span>${index + 1}. ${escapeHtml(player.display_name)}${marker}</span>
+              <strong>${player.score} pts</strong>
+            </li>
+          `;
+        })
+        .join("")}
+    </ol>
+  `;
+}
+
 function renderQuestionMedia(question) {
   if (!question?.imageUrl) {
     return "";
   }
 
   return `<img class="live-question-image" src="${question.imageUrl}" alt="Question image" />`;
+}
+
+function getRoundRankings(questionIndex) {
+  const playersById = new Map(state.players.map((player) => [player.id, player]));
+  return state.answers
+    .filter((answer) => answer.question_index === questionIndex && Number(answer.points_awarded || 0) > 0)
+    .map((answer) => ({
+      playerId: answer.player_id,
+      displayName: playersById.get(answer.player_id)?.display_name || "Player",
+      points: Number(answer.points_awarded || 0),
+      responseMs: Number(answer.response_ms || Number.MAX_SAFE_INTEGER),
+    }))
+    .sort((a, b) => {
+      if (b.points !== a.points) {
+        return b.points - a.points;
+      }
+      if (a.responseMs !== b.responseMs) {
+        return a.responseMs - b.responseMs;
+      }
+      return a.displayName.localeCompare(b.displayName);
+    });
+}
+
+function renderRoundPodium(questionIndex) {
+  const topThree = getRoundRankings(questionIndex).slice(0, 3);
+  if (!topThree.length) {
+    return `<div class="empty">No correct answers this round yet.</div>`;
+  }
+
+  const order = [1, 0, 2]
+    .map((index) => topThree[index])
+    .filter(Boolean);
+
+  return `
+    <div class="podium-wrap">
+      ${order
+        .map((entry) => {
+          const placement = topThree.indexOf(entry) + 1;
+          const levelClass = placement === 1 ? "is-first" : placement === 2 ? "is-second" : "is-third";
+          const label = placement === 1 ? "1st" : placement === 2 ? "2nd" : "3rd";
+          return `
+            <div class="podium-slot ${levelClass}">
+              <div class="podium-place">${label}</div>
+              <div class="podium-name">${escapeHtml(entry.displayName)}</div>
+              <div class="podium-points">${entry.points} pts</div>
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function getOverallWinnerName() {
+  const rankedPlayers = sortPlayers(state.players);
+  return rankedPlayers[0]?.display_name || state.players[0]?.display_name || "No players";
 }
 
 function renderPresentationMode() {
@@ -1387,7 +1467,12 @@ function renderPresentationMode() {
         <div class="presentation-slide presentation-finished-slide">
           <p class="eyebrow">Game Complete</p>
           <h2 class="presentation-title">${escapeHtml(state.game.title)}</h2>
-          <div class="presentation-question">Winner: ${escapeHtml(rankedPlayers[0]?.display_name || "No players")}</div>
+          <div class="presentation-question">Winner: ${escapeHtml(getOverallWinnerName())}</div>
+          <div class="section-title">
+            <h3>Final standings</h3>
+            <span class="tag">${rankedPlayers.length} players</span>
+          </div>
+          ${renderFullStandings(rankedPlayers)}
           ${
             topFive.length
               ? `
@@ -1430,12 +1515,21 @@ function renderPresentationMode() {
         <div class="presentation-slide reveal-slide presentation-full-slide">
           <div class="presentation-topline">
             <span class="pill">Answer review</span>
-            <span class="pill">Top 5 leaderboard</span>
+            <span class="pill">Round winners</span>
           </div>
           <div class="presentation-question">${escapeHtml(question.prompt)}</div>
           ${renderQuestionMedia(question)}
           <div class="answer-state answer-state-host">
             <p><strong>Correct answer:</strong> ${escapeHtml(formatAnswerList(question))}</p>
+          </div>
+          <div class="section-title">
+            <h3>Top 3 this round</h3>
+            <span class="tag">Fastest correct answers</span>
+          </div>
+          ${renderRoundPodium(state.game.current_question_index)}
+          <div class="section-title">
+            <h3>Overall top 5</h3>
+            <span class="tag">Running leaderboard</span>
           </div>
           ${
             topFive.length
@@ -1575,6 +1669,7 @@ function renderMainPanel({ question, isHost, currentAnswer, canSubmit }) {
   }
 
   if (state.game.phase === "finished") {
+    const rankedPlayers = sortPlayers(state.players);
     return `
       <div class="section-title">
         <h2>Game complete</h2>
@@ -1584,8 +1679,13 @@ function renderMainPanel({ question, isHost, currentAnswer, canSubmit }) {
         ${isHost ? "You can start another room from the landing page." : "Thanks for playing."}
       </p>
       <div class="score-strip">
-        <strong>Winner:</strong> ${escapeHtml(sortPlayers(state.players)[0]?.display_name || "No players")}
+        <strong>Winner:</strong> ${escapeHtml(getOverallWinnerName())}
       </div>
+      <div class="section-title">
+        <h3>Full leaderboard</h3>
+        <span class="tag">${rankedPlayers.length} players</span>
+      </div>
+      ${renderFullStandings(rankedPlayers, state.currentPlayerId)}
       <div class="button-row">
         <button class="btn btn-secondary" id="leave-room">Back to landing page</button>
       </div>
@@ -1680,7 +1780,7 @@ function renderHostRevealPresentation(question, rankedPlayers) {
     <div class="presentation-slide reveal-slide">
       <div class="presentation-topline">
         <span class="pill">Answer review</span>
-        <span class="pill">Leaderboard update</span>
+        <span class="pill">Round winners</span>
       </div>
       <div class="presentation-question">${escapeHtml(question.prompt)}</div>
       ${renderQuestionMedia(question)}
@@ -1689,7 +1789,12 @@ function renderHostRevealPresentation(question, rankedPlayers) {
         <p><strong>Host cue:</strong> Review the answer, then move to the next question when you're ready.</p>
       </div>
       <div class="section-title">
-        <h3>Top 5 leaderboard</h3>
+        <h3>Top 3 this round</h3>
+        <span class="tag">After question ${state.game.current_question_index + 1}</span>
+      </div>
+      ${renderRoundPodium(state.game.current_question_index)}
+      <div class="section-title">
+        <h3>Overall top 5</h3>
         <span class="tag">After question ${state.game.current_question_index + 1}</span>
       </div>
       ${
