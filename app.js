@@ -1860,7 +1860,7 @@ function renderPresentationMode() {
     </section>
   `;
 
-  startTimerLoop(question, false);
+  startTimerLoop(question, state.role === "host");
   wirePresentationActions();
 }
 
