@@ -1,6 +1,9 @@
 import { APP_CONFIG } from "./config.js";
 
 const DRAFT_STORAGE_KEY = "pulse-trivia-host-draft-v1";
+const urlParams = new URLSearchParams(window.location.search);
+const requestedRoomCode = String(urlParams.get("room") || "").trim().toUpperCase();
+const requestedScreen = String(urlParams.get("screen") || "").trim().toLowerCase();
 
 const DEFAULT_QUESTION_SET = [
   {
@@ -60,7 +63,8 @@ const state = {
   currentPlayerId: window.localStorage.getItem("pulse-trivia-player-id") || "",
   currentPlayerName: window.localStorage.getItem("pulse-trivia-player-name") || "",
   role: window.localStorage.getItem("pulse-trivia-role") || "",
-  roomCode: window.localStorage.getItem("pulse-trivia-room-code") || "",
+  roomCode: requestedRoomCode || window.localStorage.getItem("pulse-trivia-room-code") || "",
+  viewMode: requestedScreen === "present" ? "presentation" : "default",
   selectedAnswer: "",
   typedAnswer: "",
   currentTimerId: null,
@@ -97,6 +101,30 @@ function createRoomCode() {
     code += alphabet[Math.floor(Math.random() * alphabet.length)];
   }
   return code;
+}
+
+function getBaseAppUrl() {
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
+function getJoinUrl(roomCode) {
+  return `${getBaseAppUrl()}?room=${encodeURIComponent(roomCode)}`;
+}
+
+function getPresentationUrl(roomCode) {
+  return `${getBaseAppUrl()}?screen=present&room=${encodeURIComponent(roomCode)}`;
+}
+
+function getQrImageUrl(roomCode) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(getJoinUrl(roomCode))}`;
+}
+
+function openPresentationWindow(roomCode = state.game?.room_code || state.roomCode) {
+  if (!roomCode) {
+    return null;
+  }
+
+  return window.open(getPresentationUrl(roomCode), "_blank", "noopener,noreferrer");
 }
 
 function normalizeText(value) {
@@ -643,6 +671,16 @@ function buildSupabaseAdapter(client) {
 state.adapter = hasSupabaseConfig ? buildSupabaseAdapter(supabaseClient) : buildDemoAdapter();
 
 function renderLanding() {
+  if (state.viewMode === "presentation") {
+    el.app.innerHTML = `
+      <section class="card card-pad presentation-empty-state">
+        <h2>Presentation screen</h2>
+        <p class="muted">Waiting for a live game room to load.</p>
+      </section>
+    `;
+    return;
+  }
+
   const draft = state.questionDraft;
   const questionsMarkup = state.draftQuestions.length
     ? state.draftQuestions
@@ -898,6 +936,11 @@ function renderGame() {
     return;
   }
 
+  if (state.viewMode === "presentation") {
+    renderPresentationMode();
+    return;
+  }
+
   const question = getCurrentQuestion(state.game);
   const rankedPlayers = sortPlayers(state.players);
   const isHost = state.role === "host";
@@ -1030,6 +1073,160 @@ function renderQuestionMedia(question) {
   }
 
   return `<img class="live-question-image" src="${question.imageUrl}" alt="Question image" />`;
+}
+
+function renderPresentationMode() {
+  const question = getCurrentQuestion(state.game);
+  const rankedPlayers = sortPlayers(state.players);
+  const qrImageUrl = getQrImageUrl(state.game.room_code);
+  const joinUrl = getJoinUrl(state.game.room_code);
+  const topFive = rankedPlayers.slice(0, 5);
+
+  if (state.currentTimerId) {
+    window.clearInterval(state.currentTimerId);
+  }
+
+  if (state.game.phase === "lobby") {
+    el.app.innerHTML = `
+      <section class="presentation-page">
+        <div class="presentation-hero-panel">
+          <p class="eyebrow">Presentation Mode</p>
+          <h2 class="presentation-title">${escapeHtml(state.game.title)}</h2>
+          <p class="presentation-subtitle">Scan the QR code to join on your phone, then enter your name.</p>
+          <div class="presentation-room-block">
+            <div class="metric-label">Room Code</div>
+            <div class="room-code">${escapeHtml(state.game.room_code)}</div>
+          </div>
+          <div class="presentation-player-count">
+            <div class="metric-label">Players joined</div>
+            <div class="metric-value">${state.players.length}</div>
+          </div>
+        </div>
+        <div class="presentation-join-panel">
+          <img class="presentation-qr" src="${qrImageUrl}" alt="QR code to join trivia room" />
+          <div class="presentation-link-label">Join link</div>
+          <div class="presentation-link">${escapeHtml(joinUrl)}</div>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  if (state.game.phase === "finished") {
+    el.app.innerHTML = `
+      <section class="presentation-page">
+        <div class="presentation-slide presentation-finished-slide">
+          <p class="eyebrow">Game Complete</p>
+          <h2 class="presentation-title">${escapeHtml(state.game.title)}</h2>
+          <div class="presentation-question">Winner: ${escapeHtml(rankedPlayers[0]?.display_name || "No players")}</div>
+          ${
+            topFive.length
+              ? `
+                <ol class="leader-list reveal-leader-list presentation-leaderboard">
+                  ${topFive
+                    .map(
+                      (player, index) => `
+                        <li class="${index === 0 ? "is-first" : ""}">
+                          <span>${index + 1}. ${escapeHtml(player.display_name)}</span>
+                          <strong>${player.score} pts</strong>
+                        </li>
+                      `,
+                    )
+                    .join("")}
+                </ol>
+              `
+              : `<div class="empty">No scores yet.</div>`
+          }
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  if (!question) {
+    el.app.innerHTML = `
+      <section class="presentation-page">
+        <div class="presentation-slide">
+          <h2 class="presentation-title">${escapeHtml(state.game.title)}</h2>
+          <p class="muted">Waiting for the next question.</p>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  if (state.game.phase === "reveal") {
+    el.app.innerHTML = `
+      <section class="presentation-page">
+        <div class="presentation-slide reveal-slide presentation-full-slide">
+          <div class="presentation-topline">
+            <span class="pill">Answer review</span>
+            <span class="pill">Top 5 leaderboard</span>
+          </div>
+          <div class="presentation-question">${escapeHtml(question.prompt)}</div>
+          ${renderQuestionMedia(question)}
+          <div class="answer-state answer-state-host">
+            <p><strong>Correct answer:</strong> ${escapeHtml(formatAnswerList(question))}</p>
+          </div>
+          ${
+            topFive.length
+              ? `
+                <ol class="leader-list reveal-leader-list presentation-leaderboard">
+                  ${topFive
+                    .map(
+                      (player, index) => `
+                        <li class="${index === 0 ? "is-first" : ""}">
+                          <span>${index + 1}. ${escapeHtml(player.display_name)}</span>
+                          <strong>${player.score} pts</strong>
+                        </li>
+                      `,
+                    )
+                    .join("")}
+                </ol>
+              `
+              : `<div class="empty">No scores yet.</div>`
+          }
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  const remainingSeconds = computeRemainingSeconds(state.game, question);
+  const timerPercent = computeTimerPercent(state.game, question);
+
+  el.app.innerHTML = `
+    <section class="presentation-page">
+      <div class="presentation-slide presentation-full-slide">
+        <div class="presentation-topline">
+          <span class="pill">Question ${state.game.current_question_index + 1}</span>
+          <span class="pill">${getQuestionTypeLabel(question.type)}</span>
+          <span class="pill">Room ${escapeHtml(state.game.room_code)}</span>
+        </div>
+        <div class="presentation-question">${escapeHtml(question.prompt)}</div>
+        ${renderQuestionMedia(question)}
+        <div class="presentation-footer">
+          <div class="timer-card presentation-timer">
+            <div class="metric-label">Time left</div>
+            <div class="timer-value" id="timer-value">${remainingSeconds}s</div>
+            <div class="timer-bar"><span id="timer-fill" style="width:${timerPercent}%"></span></div>
+          </div>
+          <div class="presentation-status">
+            <div class="notice">Players answer on their phones after joining with the QR code or room code.</div>
+            <div class="presentation-mini-join">
+              <img class="presentation-mini-qr" src="${qrImageUrl}" alt="QR code to join trivia room" />
+              <div>
+                <div class="metric-label">Join</div>
+                <div class="tiny">${escapeHtml(state.game.room_code)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+
+  startTimerLoop(question, false);
 }
 
 function renderMainPanel({ question, isHost, currentAnswer, canSubmit }) {
@@ -1191,6 +1388,7 @@ function renderHostLobbyControls() {
   return `
     <div class="button-row">
       <button class="btn btn-primary" id="host-start-game">Start question 1</button>
+      <button class="btn btn-secondary" id="host-start-presentation">Open presentation tab</button>
       <button class="btn btn-secondary" id="leave-room">Back to landing page</button>
     </div>
   `;
@@ -1282,6 +1480,7 @@ function renderHostQuestionControls(question, remainingSeconds) {
           ? `<button class="btn btn-primary" id="host-next-question">${isLastQuestion ? "Finish game" : "Start next question"}</button>`
           : `<button class="btn btn-primary" id="host-reveal-answer">${remainingSeconds === 0 ? "Reveal leaderboard" : "Reveal now"}</button>`
       }
+      <button class="btn btn-secondary" id="host-open-presentation">Open presentation</button>
       <button class="btn btn-secondary" id="host-end-game">End game</button>
     </div>
     <div class="tiny muted">
@@ -1302,7 +1501,17 @@ function wireGameActions(question, isHost) {
 
   const hostStartButton = document.getElementById("host-start-game");
   if (hostStartButton) {
-    hostStartButton.addEventListener("click", () => startQuestion(0));
+    hostStartButton.addEventListener("click", async () => {
+      openPresentationWindow();
+      await startQuestion(0);
+    });
+  }
+
+  const hostStartPresentationButton = document.getElementById("host-start-presentation");
+  if (hostStartPresentationButton) {
+    hostStartPresentationButton.addEventListener("click", () => {
+      openPresentationWindow();
+    });
   }
 
   const revealButton = document.getElementById("host-reveal-answer");
@@ -1326,6 +1535,13 @@ function wireGameActions(question, isHost) {
   const endButton = document.getElementById("host-end-game");
   if (endButton) {
     endButton.addEventListener("click", finishGame);
+  }
+
+  const openPresentationButton = document.getElementById("host-open-presentation");
+  if (openPresentationButton) {
+    openPresentationButton.addEventListener("click", () => {
+      openPresentationWindow();
+    });
   }
 
   if (!isHost && question && state.game.phase === "question") {

@@ -461,6 +461,91 @@ textarea {
   gap: 20px;
 }
 
+.presentation-page {
+  min-height: calc(100vh - 140px);
+  display: flex;
+  gap: 18px;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.presentation-empty-state {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.presentation-hero-panel,
+.presentation-join-panel,
+.presentation-full-slide {
+  width: 100%;
+  border-radius: 32px;
+  border: 1px solid var(--line);
+  background: rgba(255, 252, 246, 0.92);
+  box-shadow: var(--shadow);
+}
+
+.presentation-hero-panel,
+.presentation-join-panel {
+  padding: 34px;
+}
+
+.presentation-hero-panel {
+  flex: 1.2;
+}
+
+.presentation-join-panel {
+  flex: 0.8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.presentation-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(2.4rem, 5vw, 4.8rem);
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.presentation-subtitle {
+  max-width: 720px;
+  font-size: 1.2rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.presentation-room-block,
+.presentation-player-count {
+  margin-top: 24px;
+}
+
+.presentation-qr {
+  width: min(260px, 100%);
+  aspect-ratio: 1;
+  border-radius: 24px;
+  background: #fff;
+  padding: 14px;
+  border: 1px solid var(--line);
+}
+
+.presentation-link-label {
+  margin-top: 18px;
+  font-weight: 800;
+}
+
+.presentation-link {
+  margin-top: 8px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.presentation-full-slide {
+  padding: 34px;
+}
+
 .presentation-topline {
   display: flex;
   flex-wrap: wrap;
@@ -488,6 +573,33 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.presentation-mini-join {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.presentation-mini-qr {
+  width: 80px;
+  height: 80px;
+  border-radius: 16px;
+  background: #fff;
+  padding: 6px;
+  border: 1px solid var(--line);
+}
+
+.presentation-leaderboard {
+  margin: 0;
+}
+
+.presentation-finished-slide {
+  justify-content: center;
 }
 
 .reveal-slide {
@@ -537,6 +649,10 @@ textarea {
   }
 
   .hero {
+    flex-direction: column;
+  }
+
+  .presentation-page {
     flex-direction: column;
   }
 }
