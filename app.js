@@ -1246,6 +1246,15 @@ function renderPresentationMode() {
             <div class="metric-label">Players joined</div>
             <div class="metric-value">${state.players.length}</div>
           </div>
+          ${
+            state.role === "host"
+              ? `
+                <div class="presentation-control-bar">
+                  <button class="btn btn-primary" id="presentation-start-game">Begin question 1</button>
+                </div>
+              `
+              : ""
+          }
         </div>
         <div class="presentation-join-panel">
           <img class="presentation-qr" src="${qrImageUrl}" alt="QR code to join trivia room" />
@@ -1331,9 +1340,18 @@ function renderPresentationMode() {
               `
               : `<div class="empty">No scores yet.</div>`
           }
+          ${
+            state.role === "host"
+              ? renderPresentationControls({
+                  phase: "reveal",
+                  isLastQuestion: state.game.current_question_index >= state.game.questions_json.length - 1,
+                })
+              : ""
+          }
         </div>
       </section>
     `;
+    wirePresentationActions();
     return;
   }
 
@@ -1367,11 +1385,64 @@ function renderPresentationMode() {
             </div>
           </div>
         </div>
+        ${
+          state.role === "host"
+            ? renderPresentationControls({
+                phase: "question",
+                remainingSeconds,
+                isLastQuestion: false,
+              })
+            : ""
+        }
       </div>
     </section>
   `;
 
   startTimerLoop(question, false);
+  wirePresentationActions();
+}
+
+function renderPresentationControls({ phase, remainingSeconds = 0, isLastQuestion = false }) {
+  return `
+    <div class="presentation-control-bar">
+      ${
+        phase === "reveal"
+          ? `<button class="btn btn-primary" id="presentation-next-question">${isLastQuestion ? "Finish game" : "Next question"}</button>`
+          : `<button class="btn btn-primary" id="presentation-reveal-answer">${remainingSeconds === 0 ? "Reveal leaderboard" : "Reveal now"}</button>`
+      }
+      <button class="btn btn-secondary" id="presentation-end-game">End game</button>
+    </div>
+  `;
+}
+
+function wirePresentationActions() {
+  const startButton = document.getElementById("presentation-start-game");
+  if (startButton) {
+    startButton.addEventListener("click", () => startQuestion(0));
+  }
+
+  const revealButton = document.getElementById("presentation-reveal-answer");
+  if (revealButton) {
+    revealButton.addEventListener("click", revealQuestion);
+  }
+
+  const nextButton = document.getElementById("presentation-next-question");
+  if (nextButton) {
+    nextButton.addEventListener("click", async () => {
+      const nextIndex = state.game.current_question_index + 1;
+      if (nextIndex >= state.game.questions_json.length) {
+        await finishGame();
+        return;
+      }
+
+      await startQuestion(nextIndex);
+    });
+  }
+
+  const endButton = document.getElementById("presentation-end-game");
+  if (endButton) {
+    endButton.addEventListener("click", finishGame);
+  }
 }
 
 function renderMainPanel({ question, isHost, currentAnswer, canSubmit }) {

@@ -650,6 +650,13 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.presentation-control-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
 .presentation-full-slide {
   padding: 34px;
 }
