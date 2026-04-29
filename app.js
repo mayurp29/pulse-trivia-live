@@ -850,7 +850,7 @@ function renderLanding() {
         <div class="saved-game-list">${savedGamesMarkup}</div>
 
         <div class="divider"></div>
-        <div class="section-title">
+        <div class="section-title" id="game-editor-heading">
           <h3>${isEditing ? "Edit game" : "Create game"}</h3>
           <span class="tag">${isEditing ? "Save changes" : "Save quiz"}</span>
         </div>
@@ -1084,6 +1084,11 @@ function startNewGameSetup() {
   resetEditorState();
   persistDraftState();
   renderLanding();
+  window.requestAnimationFrame(() => {
+    document.getElementById("game-editor-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("game-title")?.focus();
+  });
+  showToast("New game form is ready.");
 }
 
 function upsertSavedGameRecord(record) {
