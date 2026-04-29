@@ -717,12 +717,19 @@ function buildSupabaseAdapter(client) {
     },
 
     async saveSavedGame(record) {
-      const payload = {
-        id: record.id === "sample-trivia-round" ? undefined : record.id,
-        title: record.title,
-        questions_json: record.questions,
-        updated_at: new Date().toISOString(),
-      };
+      const payload =
+        record.id === "sample-trivia-round"
+          ? {
+              title: record.title,
+              questions_json: record.questions,
+              updated_at: new Date().toISOString(),
+            }
+          : {
+              id: record.id,
+              title: record.title,
+              questions_json: record.questions,
+              updated_at: new Date().toISOString(),
+            };
 
       const { data, error } = await client
         .from("quiz_templates")
