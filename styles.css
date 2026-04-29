@@ -188,6 +188,15 @@ label {
   font-weight: 600;
 }
 
+.checkbox-row {
+  justify-content: flex-end;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: auto;
+  align-self: flex-start;
+}
+
 input,
 textarea,
 select {
@@ -657,6 +666,24 @@ textarea {
   margin-top: 8px;
 }
 
+.presentation-lobby-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.presentation-lobby-card {
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.presentation-compact-list li {
+  padding: 10px 12px;
+}
+
 .presentation-full-slide {
   padding: 34px;
 }
@@ -760,6 +787,7 @@ textarea {
   .split-row,
   .metric-grid,
   .presentation-footer,
+  .presentation-lobby-grid,
   .host-join-stage {
     grid-template-columns: 1fr;
   }

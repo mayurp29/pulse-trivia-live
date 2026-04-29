@@ -49,6 +49,9 @@ function createEmptyDraft(type = "multiple-choice") {
     options: ["", "", "", ""],
     correctOptionIndex: 0,
     acceptedAnswers: "",
+    isWeighted: false,
+    pointValue: 1000,
+    fastestBonusPoints: 250,
   };
 }
 
@@ -248,28 +251,14 @@ function scoreAnswer(question, answerRecord, questionStartedAt) {
     return {
       isCorrect,
       responseMs,
-      pointsAwarded: 0,
+      basePoints: 0,
     };
-  }
-
-  const totalMs = question.timeLimitSec * 1000;
-  const fastWindowMs = Math.min(5000, totalMs);
-  const basePoints = 400;
-  let speedBonus = 0;
-
-  if (responseMs <= fastWindowMs) {
-    const fastRatio = 1 - responseMs / fastWindowMs;
-    speedBonus = 900 + Math.round(fastRatio * 300);
-  } else {
-    const lateWindowMs = Math.max(1, totalMs - fastWindowMs);
-    const lateRatio = Math.max(0, 1 - (responseMs - fastWindowMs) / lateWindowMs);
-    speedBonus = Math.max(60, Math.round(lateRatio * 500));
   }
 
   return {
     isCorrect,
     responseMs,
-    pointsAwarded: basePoints + speedBonus,
+    basePoints: Number(question.pointValue || 1000),
   };
 }
 
@@ -742,6 +731,7 @@ function renderLanding() {
                 <span>${getQuestionTypeLabel(question.type)}</span>
                 <span>${question.timeLimitSec}s timer</span>
                 <span>${question.imageUrl ? "Image included" : "No image"}</span>
+                <span>${question.pointValue || 1000} pts</span>
               </div>
               ${
                 question.imageUrl
@@ -754,6 +744,7 @@ function renderLanding() {
                     ? `Correct answer: ${escapeHtml(question.correctAnswer)}`
                     : `Accepted answers: ${escapeHtml((question.acceptedAnswers || []).join(", "))}`
                 }
+                ${question.fastestBonusPoints ? ` | Fastest bonus: ${question.fastestBonusPoints} pts under 10s` : ""}
               </div>
             </article>
           `,
@@ -827,6 +818,21 @@ function renderLanding() {
               <input id="draft-timer" name="timeLimitSec" type="number" min="5" max="60" value="${draft.timeLimitSec}" />
             </label>
           </div>
+          <div class="split-row">
+            <label class="checkbox-row">
+              <span>Weighted question</span>
+              <input id="draft-weighted" name="isWeighted" type="checkbox" ${draft.isWeighted ? "checked" : ""} />
+            </label>
+            <label>
+              Question points
+              <input id="draft-point-value" name="pointValue" type="number" min="100" step="100" value="${draft.pointValue}" />
+            </label>
+          </div>
+          <label>
+            Fastest correct bonus
+            <input id="draft-fastest-bonus" name="fastestBonusPoints" type="number" min="0" step="50" value="${draft.fastestBonusPoints}" />
+          </label>
+          <div class="tiny muted">Only one player gets this bonus: the fastest correct answer received within 10 seconds.</div>
           <label>
             Question text
             <textarea id="draft-prompt" name="prompt" class="question-prompt-box">${escapeHtml(draft.prompt)}</textarea>
@@ -1245,6 +1251,72 @@ function renderPresentationMode() {
           <div class="presentation-player-count">
             <div class="metric-label">Players joined</div>
             <div class="metric-value">${state.players.length}</div>
+          </div>
+          <div class="presentation-lobby-grid">
+            <div class="presentation-lobby-card">
+              <div class="section-title">
+                <h3>Joined players</h3>
+                <span class="tag">${state.players.length}</span>
+              </div>
+              ${
+                rankedPlayers.length
+                  ? `
+                      <ol class="leader-list presentation-compact-list">
+                        ${rankedPlayers
+                          .slice(0, 12)
+                          .map(
+                            (player, index) => `
+                              <li>
+                                <span>${index + 1}. ${escapeHtml(player.display_name)}</span>
+                                <strong>${player.score} pts</strong>
+                              </li>
+                            `,
+                          )
+                          .join("")}
+                      </ol>
+                    `
+                  : `<div class="empty">No players have joined yet.</div>`
+              }
+            </div>
+            <div class="presentation-lobby-card">
+              <div class="section-title">
+                <h3>How points work</h3>
+                <span class="tag">Scoring</span>
+              </div>
+              <div class="notice">
+                Correct answer: full question points.
+                <br />
+                Weighted questions: higher point values.
+                <br />
+                Fastest bonus: only one player earns it, and only if they are the fastest correct answer within 10 seconds.
+                <br />
+                Leaderboard updates after every reveal.
+              </div>
+            </div>
+          </div>
+          <div class="presentation-lobby-card">
+            <div class="section-title">
+              <h3>Current leaderboard</h3>
+              <span class="tag">Top 5</span>
+            </div>
+            ${
+              topFive.length
+                ? `
+                    <ol class="leader-list reveal-leader-list presentation-leaderboard">
+                      ${topFive
+                        .map(
+                          (player, index) => `
+                            <li class="${index === 0 ? "is-first" : ""}">
+                              <span>${index + 1}. ${escapeHtml(player.display_name)}</span>
+                              <strong>${player.score} pts</strong>
+                            </li>
+                          `,
+                        )
+                        .join("")}
+                    </ol>
+                  `
+                : `<div class="empty">Leaderboard will appear as players join and answer.</div>`
+            }
           </div>
           ${
             state.role === "host"
@@ -1845,6 +1917,9 @@ function normalizeQuestion(question, index) {
     prompt: String(question.prompt || "").trim(),
     timeLimitSec: Number(question.timeLimitSec || 20),
     imageUrl: question.imageUrl || "",
+    isWeighted: Boolean(question.isWeighted),
+    pointValue: Math.max(100, Number(question.pointValue || 1000)),
+    fastestBonusPoints: Math.max(0, Number(question.fastestBonusPoints || 0)),
   };
 
   if (type !== "multiple-choice") {
@@ -1874,6 +1949,9 @@ function readDraftForm() {
     type,
     prompt: document.getElementById("draft-prompt")?.value.trim() || "",
     timeLimitSec: Number(document.getElementById("draft-timer")?.value || 20),
+    isWeighted: Boolean(document.getElementById("draft-weighted")?.checked),
+    pointValue: Number(document.getElementById("draft-point-value")?.value || 1000),
+    fastestBonusPoints: Number(document.getElementById("draft-fastest-bonus")?.value || 0),
     options,
     correctOptionIndex: Number(document.getElementById("draft-correct-index")?.value || 0),
     acceptedAnswers: document.getElementById("draft-accepted-answers")?.value.trim() || "",
@@ -1923,6 +2001,9 @@ function handleQuestionAdd(event) {
     prompt: state.questionDraft.prompt,
     timeLimitSec: Math.min(60, Math.max(5, Number(state.questionDraft.timeLimitSec || 20))),
     imageUrl: state.questionDraft.imageUrl,
+    isWeighted: Boolean(state.questionDraft.isWeighted),
+    pointValue: Math.max(100, Number(state.questionDraft.pointValue || 1000)),
+    fastestBonusPoints: Math.max(0, Number(state.questionDraft.fastestBonusPoints || 0)),
   };
 
   if (state.questionDraft.type === "multiple-choice") {
@@ -2124,9 +2205,17 @@ async function revealQuestion() {
         ...answer,
         is_correct: scoring.isCorrect,
         response_ms: scoring.responseMs,
-        points_awarded: scoring.pointsAwarded,
+        points_awarded: scoring.basePoints,
       };
     });
+
+    const fastestCorrectAnswer = scoredAnswers
+      .filter((answer) => answer.is_correct && (answer.response_ms ?? Number.MAX_SAFE_INTEGER) <= 10000)
+      .sort((a, b) => (a.response_ms ?? Number.MAX_SAFE_INTEGER) - (b.response_ms ?? Number.MAX_SAFE_INTEGER))[0];
+
+    if (fastestCorrectAnswer && Number(question.fastestBonusPoints || 0) > 0) {
+      fastestCorrectAnswer.points_awarded += Number(question.fastestBonusPoints || 0);
+    }
 
     const answersByPlayer = new Map(scoredAnswers.map((answer) => [answer.player_id, answer.points_awarded]));
 
