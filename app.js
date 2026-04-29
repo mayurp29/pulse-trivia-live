@@ -768,7 +768,7 @@ function renderLanding() {
           `,
         )
         .join("")
-    : `<div class="empty">No saved games yet. Create your first game setup.</div>`;
+    : `<div class="empty">No saved games yet. Create your first game.</div>`;
   const questionsMarkup = state.draftQuestions.length
     ? state.draftQuestions
         .map(
@@ -814,7 +814,7 @@ function renderLanding() {
           <span class="tag">Game library</span>
         </div>
         <p class="muted">
-          Save game setups, launch any one into a live room, and keep multiple trivia formats ready for future events.
+          Create quizzes, save them, and launch any one into a live room whenever you need it.
         </p>
 
         <form id="launch-form" class="form-row">
@@ -837,8 +837,8 @@ function renderLanding() {
             </div>
           </div>
           <div class="button-row">
-            <button class="btn btn-primary" id="create-game-setup" type="button">${isEditing ? "Editing setup below" : "Create new game setup"}</button>
-            <button class="btn btn-secondary" id="load-samples" type="button">Load sample setup</button>
+            <button class="btn btn-primary" id="create-game-setup" type="button">${isEditing ? "Editing game below" : "Create new game"}</button>
+            <button class="btn btn-secondary" id="load-samples" type="button">Load sample game</button>
           </div>
         </form>
 
@@ -851,8 +851,8 @@ function renderLanding() {
 
         <div class="divider"></div>
         <div class="section-title">
-          <h3>${isEditing ? "Edit game setup" : "Create game setup"}</h3>
-          <span class="tag">${isEditing ? "Save changes" : "Build and save"}</span>
+          <h3>${isEditing ? "Edit game" : "Create game"}</h3>
+          <span class="tag">${isEditing ? "Save changes" : "Save quiz"}</span>
         </div>
         <form id="question-builder-form" class="form-row">
           <label>
@@ -949,7 +949,7 @@ function renderLanding() {
 
           <div class="button-row">
             <button class="btn btn-primary" type="submit">Add question</button>
-            <button class="btn btn-secondary" id="save-game-setup" type="button">${isEditing ? "Save game changes" : "Save this game"}</button>
+            <button class="btn btn-secondary" id="save-game-setup" type="button">${isEditing ? "Save quiz changes" : "Save quiz"}</button>
             <button class="btn btn-ghost" id="clear-questions" type="button">Reset editor</button>
           </div>
         </form>
