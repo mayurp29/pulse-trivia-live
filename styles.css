@@ -80,20 +80,6 @@ button {
   object-fit: contain;
 }
 
-.hero-copy-block {
-  display: flex;
-  flex-direction: column;
-}
-
-.eyebrow {
-  margin: 0 0 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-size: 0.75rem;
-  color: var(--blue);
-  font-weight: 700;
-}
-
 h1,
 h2,
 h3,
@@ -107,14 +93,6 @@ h1 {
   font-family: "Space Grotesk", sans-serif;
   font-size: clamp(2.3rem, 4vw, 4rem);
   line-height: 0.95;
-}
-
-.hero-copy {
-  max-width: 760px;
-  color: var(--muted);
-  font-size: 1.05rem;
-  line-height: 1.6;
-  margin-bottom: 0;
 }
 
 .mode-chip,
@@ -478,6 +456,15 @@ textarea {
   margin-top: 16px;
 }
 
+.player-join-only-shell {
+  display: flex;
+  justify-content: center;
+}
+
+.player-join-only-card {
+  width: min(560px, 100%);
+}
+
 .host-join-stage {
   display: grid;
   gap: 18px;
@@ -798,8 +785,7 @@ textarea {
   }
 
   .hero-brand {
-    flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
   }
 
   .presentation-page {

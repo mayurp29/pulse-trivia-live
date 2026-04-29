@@ -80,11 +80,13 @@ const state = {
   hostDraftName: savedDraftState.hostDraftName,
   gameTitleDraft: savedDraftState.gameTitleDraft,
   editingGameId: savedDraftState.editingGameId,
+  joinPreviewTitle: "",
 };
 
 const el = {
   app: document.getElementById("app"),
   modeChip: document.getElementById("mode-chip"),
+  heroTitle: document.getElementById("hero-title"),
 };
 
 const hasSupabaseConfig = Boolean(APP_CONFIG.supabaseUrl && APP_CONFIG.supabaseAnonKey);
@@ -323,6 +325,13 @@ function escapeHtml(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function updateHeroTitle() {
+  const title = state.game?.title || state.joinPreviewTitle || "AAHOA Trivia";
+  if (el.heroTitle) {
+    el.heroTitle.textContent = title;
+  }
 }
 
 function buildDemoAdapter() {
@@ -678,6 +687,8 @@ function buildSupabaseAdapter(client) {
 state.adapter = hasSupabaseConfig ? buildSupabaseAdapter(supabaseClient) : buildDemoAdapter();
 
 function renderLanding() {
+  updateHeroTitle();
+
   if (state.viewMode === "presentation") {
     el.app.innerHTML = `
       <section class="card card-pad presentation-empty-state">
@@ -685,6 +696,35 @@ function renderLanding() {
         <p class="muted">Waiting for a live game room to load.</p>
       </section>
     `;
+    return;
+  }
+
+  if (requestedRoomCode && !state.currentPlayerId && state.role !== "host") {
+    el.app.innerHTML = `
+      <div class="player-join-only-shell">
+        <section class="card card-pad player-join-only-card">
+          <div class="section-title">
+            <h2>Join as a player</h2>
+            <span class="tag">AAHOA Trivia</span>
+          </div>
+          <p class="muted">Enter your name to join this room.</p>
+          <form id="join-form" class="form-row">
+            <label>
+              Your name
+              <input id="player-name" name="playerName" value="${escapeHtml(state.currentPlayerName)}" placeholder="Player name" required />
+            </label>
+            <label>
+              Room code
+              <input id="room-code" name="roomCode" value="${escapeHtml(state.roomCode)}" placeholder="AB12CD" maxlength="6" required />
+            </label>
+            <div class="button-row">
+              <button class="btn btn-primary" type="submit">Join room</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    `;
+    document.getElementById("join-form").addEventListener("submit", handleJoinGame);
     return;
   }
 
@@ -1086,6 +1126,8 @@ function renderGame() {
     renderLanding();
     return;
   }
+
+  updateHeroTitle();
 
   if (state.viewMode === "presentation") {
     renderPresentationMode();
@@ -2331,6 +2373,12 @@ async function restoreSession() {
   }
 
   if (requestedRoomCode && !state.currentPlayerId && state.role !== "host" && state.viewMode !== "presentation") {
+    try {
+      const previewGame = await state.adapter.getGame(state.roomCode);
+      state.joinPreviewTitle = previewGame?.title || "AAHOA Trivia";
+    } catch (error) {
+      console.error(error);
+    }
     renderLanding();
     return;
   }
