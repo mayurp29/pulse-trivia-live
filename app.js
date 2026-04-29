@@ -862,15 +862,15 @@ function renderLanding() {
                 <span class="tag">Reusable</span>
               </div>
               <div class="button-row saved-game-actions">
-                <button class="btn btn-primary saved-game-launch" data-game-id="${game.id}" type="button">Launch this game</button>
-                <button class="btn btn-secondary saved-game-edit" data-game-id="${game.id}" type="button">Edit / add questions</button>
+                <button class="btn btn-primary saved-game-launch" data-game-id="${game.id}" type="button">Launch quiz</button>
+                <button class="btn btn-secondary saved-game-edit" data-game-id="${game.id}" type="button">Open quiz</button>
                 <button class="btn btn-ghost saved-game-delete" data-game-id="${game.id}" type="button">Delete</button>
               </div>
             </article>
           `,
         )
         .join("")
-    : `<div class="empty">No saved games yet. Create your first game.</div>`;
+    : `<div class="empty">No saved quizzes yet. Create your first quiz.</div>`;
   const questionsMarkup = state.draftQuestions.length
     ? state.draftQuestions
         .map(
@@ -916,10 +916,10 @@ function renderLanding() {
       <section class="card card-pad stack">
         <div class="section-title">
           <h2>Host a game</h2>
-          <span class="tag">Game library</span>
+          <span class="tag">Quiz library</span>
         </div>
         <p class="muted">
-          Create quizzes, save them, and launch any one into a live room whenever you need it.
+          Saved quizzes are shared through the live site so you can open them from other computers too.
         </p>
 
         <form id="launch-form" class="form-row">
@@ -929,7 +929,7 @@ function renderLanding() {
           </label>
           <div class="metric-grid">
             <div class="metric">
-              <div class="metric-label">Saved Games</div>
+              <div class="metric-label">Saved Quizzes</div>
               <div class="metric-value">${state.savedGames.length}</div>
             </div>
             <div class="metric">
@@ -944,12 +944,13 @@ function renderLanding() {
           <div class="button-row">
             <button class="btn btn-primary" id="create-game-setup" type="button">${isEditing ? "Editing game below" : "Create new game"}</button>
             <button class="btn btn-secondary" id="load-samples" type="button">Load sample game</button>
+            <button class="btn btn-secondary" id="refresh-saved-games" type="button">Refresh quiz list</button>
           </div>
         </form>
 
         <div class="divider"></div>
         <div class="section-title">
-          <h3>Saved games</h3>
+          <h3>Saved quizzes</h3>
           <span class="tag">${state.savedGames.length} total</span>
         </div>
         <div class="saved-game-list">${savedGamesMarkup}</div>
@@ -1134,6 +1135,11 @@ function renderLanding() {
     state.savedGames = upsertSavedGameRecord(createSampleGameRecord());
     persistDraftState();
     renderLanding();
+  });
+  document.getElementById("refresh-saved-games").addEventListener("click", async () => {
+    await refreshSavedGamesLibrary();
+    renderLanding();
+    showToast("Quiz list refreshed.");
   });
   document.getElementById("clear-questions").addEventListener("click", () => {
     cacheLandingInputs();
