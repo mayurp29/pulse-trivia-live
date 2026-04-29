@@ -974,7 +974,8 @@ function renderLanding() {
           </div>
 
           <div class="button-row">
-            <button class="btn btn-primary" type="submit">${isEditingQuestion ? "Save question changes" : "Add question"}</button>
+            <button class="btn btn-primary" type="submit">Add question</button>
+            ${isEditingQuestion ? `<button class="btn btn-secondary" id="update-question" type="button">Update question</button>` : ""}
             <button class="btn btn-secondary" id="save-game-setup" type="button">${isEditing ? "Save quiz changes" : "Save quiz"}</button>
             ${isEditingQuestion ? `<button class="btn btn-secondary" id="add-as-new-question" type="button">Add as new question</button>` : ""}
             ${isEditingQuestion ? `<button class="btn btn-secondary" id="cancel-question-edit" type="button">Cancel question edit</button>` : ""}
@@ -1104,6 +1105,11 @@ function renderLanding() {
   const addAsNewQuestionButton = document.getElementById("add-as-new-question");
   if (addAsNewQuestionButton) {
     addAsNewQuestionButton.addEventListener("click", switchToAddNewQuestion);
+  }
+
+  const updateQuestionButton = document.getElementById("update-question");
+  if (updateQuestionButton) {
+    updateQuestionButton.addEventListener("click", handleQuestionUpdate);
   }
 }
 
@@ -2271,14 +2277,13 @@ function handleQuestionAdd(event) {
   event.preventDefault();
   cacheLandingInputs();
   readDraftForm();
-  const wasEditingQuestion = state.editingQuestionIndex >= 0;
 
   if (!state.questionDraft.prompt) {
     showToast("Please enter the question text.");
     return;
   }
 
-  const questionIndex = state.editingQuestionIndex >= 0 ? state.editingQuestionIndex + 1 : state.draftQuestions.length + 1;
+  const questionIndex = state.draftQuestions.length + 1;
   const baseQuestion = {
     id: `q${questionIndex}`,
     type: state.questionDraft.type,
@@ -2308,12 +2313,7 @@ function handleQuestionAdd(event) {
       options,
       correctAnswer,
     };
-
-    if (state.editingQuestionIndex >= 0) {
-      state.draftQuestions.splice(state.editingQuestionIndex, 1, nextQuestion);
-    } else {
-      state.draftQuestions.push(nextQuestion);
-    }
+    state.draftQuestions.push(nextQuestion);
   } else {
     const acceptedAnswers = state.questionDraft.acceptedAnswers
       .split(",")
@@ -2329,12 +2329,7 @@ function handleQuestionAdd(event) {
       ...baseQuestion,
       acceptedAnswers,
     };
-
-    if (state.editingQuestionIndex >= 0) {
-      state.draftQuestions.splice(state.editingQuestionIndex, 1, nextQuestion);
-    } else {
-      state.draftQuestions.push(nextQuestion);
-    }
+    state.draftQuestions.push(nextQuestion);
   }
 
   state.questionDraft = createEmptyDraft(state.questionDraft.type);
@@ -2344,13 +2339,77 @@ function handleQuestionAdd(event) {
   window.requestAnimationFrame(() => {
     document.getElementById("draft-prompt")?.focus();
   });
-  showToast(
-    wasEditingQuestion
-      ? "Question updated. Click Save quiz changes."
-      : state.editingGameId
-        ? "Question added. Click Save quiz changes."
-        : "Question added.",
-  );
+  showToast(state.editingGameId ? "Question added. Click Save quiz changes." : "Question added.");
+}
+
+function handleQuestionUpdate() {
+  cacheLandingInputs();
+  readDraftForm();
+
+  if (state.editingQuestionIndex < 0) {
+    showToast("Choose a saved question to edit first.");
+    return;
+  }
+
+  if (!state.questionDraft.prompt) {
+    showToast("Please enter the question text.");
+    return;
+  }
+
+  const questionIndex = state.editingQuestionIndex + 1;
+  const baseQuestion = {
+    id: `q${questionIndex}`,
+    type: state.questionDraft.type,
+    prompt: state.questionDraft.prompt,
+    timeLimitSec: Math.min(60, Math.max(5, Number(state.questionDraft.timeLimitSec || 20))),
+    imageUrl: state.questionDraft.imageUrl,
+    isWeighted: Boolean(state.questionDraft.isWeighted),
+    pointValue: Math.max(100, Number(state.questionDraft.pointValue || 1000)),
+    fastestBonusPoints: Math.max(0, Number(state.questionDraft.fastestBonusPoints || 0)),
+  };
+
+  let nextQuestion;
+  if (state.questionDraft.type === "multiple-choice") {
+    const options = state.questionDraft.options.map((option) => option.trim()).filter(Boolean);
+    if (options.length < 2) {
+      showToast("Please enter at least two answer options.");
+      return;
+    }
+
+    const correctAnswer = state.questionDraft.options[state.questionDraft.correctOptionIndex]?.trim();
+    if (!correctAnswer) {
+      showToast("Please choose a filled-in correct option.");
+      return;
+    }
+
+    nextQuestion = {
+      ...baseQuestion,
+      options,
+      correctAnswer,
+    };
+  } else {
+    const acceptedAnswers = state.questionDraft.acceptedAnswers
+      .split(",")
+      .map((answer) => answer.trim())
+      .filter(Boolean);
+
+    if (!acceptedAnswers.length) {
+      showToast("Please add at least one accepted answer.");
+      return;
+    }
+
+    nextQuestion = {
+      ...baseQuestion,
+      acceptedAnswers,
+    };
+  }
+
+  state.draftQuestions.splice(state.editingQuestionIndex, 1, nextQuestion);
+  state.questionDraft = createEmptyDraft(state.questionDraft.type);
+  state.editingQuestionIndex = -1;
+  persistDraftState();
+  renderLanding();
+  showToast("Question updated. Click Save quiz changes.");
 }
 
 function handleSaveGameSetup() {
