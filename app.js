@@ -80,6 +80,7 @@ const state = {
   hostDraftName: savedDraftState.hostDraftName,
   gameTitleDraft: savedDraftState.gameTitleDraft,
   editingGameId: savedDraftState.editingGameId,
+  editingQuestionIndex: savedDraftState.editingQuestionIndex,
   joinPreviewTitle: "",
 };
 
@@ -173,6 +174,7 @@ function loadSavedDraftState() {
     hostDraftName: "",
     gameTitleDraft: "",
     editingGameId: "",
+    editingQuestionIndex: -1,
   };
   const saved = safeJsonParse(window.localStorage.getItem(HOST_STUDIO_STORAGE_KEY), null);
   if (!saved) {
@@ -189,6 +191,7 @@ function loadSavedDraftState() {
     hostDraftName: String(saved.hostDraftName || ""),
     gameTitleDraft: String(saved.gameTitleDraft || ""),
     editingGameId: String(saved.editingGameId || ""),
+    editingQuestionIndex: Number(saved.editingQuestionIndex ?? -1),
   };
 }
 
@@ -202,6 +205,7 @@ function persistDraftState() {
       hostDraftName: state.hostDraftName,
       gameTitleDraft: state.gameTitleDraft,
       editingGameId: state.editingGameId,
+      editingQuestionIndex: state.editingQuestionIndex,
     }),
   );
 }
@@ -744,6 +748,7 @@ function renderLanding() {
 
   const draft = state.questionDraft;
   const isEditing = Boolean(state.editingGameId);
+  const isEditingQuestion = state.editingQuestionIndex >= 0;
   const savedGamesMarkup = state.savedGames.length
     ? state.savedGames
         .map(
@@ -779,7 +784,10 @@ function renderLanding() {
                   <div class="pill">Q${index + 1}</div>
                   <h3>${escapeHtml(question.prompt)}</h3>
                 </div>
-                <button class="btn btn-secondary question-remove" data-index="${index}" type="button">Remove</button>
+                <div class="button-row saved-game-actions">
+                  <button class="btn btn-secondary question-edit" data-index="${index}" type="button">Edit</button>
+                  <button class="btn btn-secondary question-remove" data-index="${index}" type="button">Remove</button>
+                </div>
               </div>
               <div class="question-card-meta">
                 <span>${getQuestionTypeLabel(question.type)}</span>
@@ -859,6 +867,15 @@ function renderLanding() {
             ? `
               <div class="notice">
                 You are editing a saved quiz. Add more questions below, then click <strong>Save quiz changes</strong>.
+              </div>
+            `
+            : ""
+        }
+        ${
+          isEditingQuestion
+            ? `
+              <div class="notice">
+                You are editing question ${state.editingQuestionIndex + 1}. Update the fields below, then click <strong>Save question changes</strong>.
               </div>
             `
             : ""
@@ -957,8 +974,9 @@ function renderLanding() {
           </div>
 
           <div class="button-row">
-            <button class="btn btn-primary" type="submit">Add question</button>
+            <button class="btn btn-primary" type="submit">${isEditingQuestion ? "Save question changes" : "Add question"}</button>
             <button class="btn btn-secondary" id="save-game-setup" type="button">${isEditing ? "Save quiz changes" : "Save quiz"}</button>
+            ${isEditingQuestion ? `<button class="btn btn-secondary" id="cancel-question-edit" type="button">Cancel question edit</button>` : ""}
             <button class="btn btn-ghost" id="clear-questions" type="button">Reset editor</button>
           </div>
         </form>
@@ -1041,8 +1059,21 @@ function renderLanding() {
       cacheLandingInputs();
       const index = Number(button.dataset.index);
       state.draftQuestions.splice(index, 1);
+      if (state.editingQuestionIndex === index) {
+        state.questionDraft = createEmptyDraft();
+        state.editingQuestionIndex = -1;
+      } else if (state.editingQuestionIndex > index) {
+        state.editingQuestionIndex -= 1;
+      }
       persistDraftState();
       renderLanding();
+    });
+  });
+
+  document.querySelectorAll(".question-edit").forEach((button) => {
+    button.addEventListener("click", () => {
+      cacheLandingInputs();
+      loadQuestionIntoEditor(Number(button.dataset.index));
     });
   });
 
@@ -1063,6 +1094,11 @@ function renderLanding() {
       deleteSavedGame(button.dataset.gameId || "");
     });
   });
+
+  const cancelQuestionEditButton = document.getElementById("cancel-question-edit");
+  if (cancelQuestionEditButton) {
+    cancelQuestionEditButton.addEventListener("click", cancelQuestionEdit);
+  }
 }
 
 function cacheLandingInputs() {
@@ -1087,6 +1123,7 @@ function resetEditorState() {
   state.questionDraft = createEmptyDraft();
   state.gameTitleDraft = "";
   state.editingGameId = "";
+  state.editingQuestionIndex = -1;
 }
 
 function startNewGameSetup() {
@@ -1116,6 +1153,7 @@ function loadGameIntoEditor(gameId) {
   state.gameTitleDraft = game.title;
   state.draftQuestions = deepClone(game.questions);
   state.questionDraft = createEmptyDraft();
+  state.editingQuestionIndex = -1;
   persistDraftState();
   renderLanding();
   window.requestAnimationFrame(() => {
@@ -1123,6 +1161,56 @@ function loadGameIntoEditor(gameId) {
     document.getElementById("draft-prompt")?.focus();
   });
   showToast("Quiz loaded. Add more questions, then click Save quiz changes.");
+}
+
+function loadQuestionIntoEditor(index) {
+  const question = state.draftQuestions[index];
+  if (!question) {
+    showToast("Question not found.");
+    return;
+  }
+
+  const type = question.type === "multiple-choice" ? "multiple-choice" : "short-answer";
+  const draft = createEmptyDraft(type);
+  draft.prompt = question.prompt || "";
+  draft.timeLimitSec = Number(question.timeLimitSec || 20);
+  draft.imageUrl = question.imageUrl || "";
+  draft.imageName = question.imageName || "";
+  draft.isWeighted = Boolean(question.isWeighted);
+  draft.pointValue = Number(question.pointValue || 1000);
+  draft.fastestBonusPoints = Number(question.fastestBonusPoints || 0);
+
+  if (type === "multiple-choice") {
+    const options = Array.isArray(question.options) ? [...question.options] : [];
+    while (options.length < 4) {
+      options.push("");
+    }
+    draft.options = options.slice(0, 4);
+    const correctIndex = draft.options.findIndex((option) => option === question.correctAnswer);
+    draft.correctOptionIndex = correctIndex >= 0 ? correctIndex : 0;
+  } else {
+    draft.acceptedAnswers = Array.isArray(question.acceptedAnswers)
+      ? question.acceptedAnswers.join(", ")
+      : String(question.acceptedAnswers || "");
+  }
+
+  state.questionDraft = draft;
+  state.editingQuestionIndex = index;
+  persistDraftState();
+  renderLanding();
+  window.requestAnimationFrame(() => {
+    document.getElementById("game-editor-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("draft-prompt")?.focus();
+  });
+  showToast(`Editing question ${index + 1}.`);
+}
+
+function cancelQuestionEdit() {
+  state.questionDraft = createEmptyDraft(state.questionDraft.type);
+  state.editingQuestionIndex = -1;
+  persistDraftState();
+  renderLanding();
+  showToast("Question edit canceled.");
 }
 
 function deleteSavedGame(gameId) {
@@ -2166,13 +2254,14 @@ function handleQuestionAdd(event) {
   event.preventDefault();
   cacheLandingInputs();
   readDraftForm();
+  const wasEditingQuestion = state.editingQuestionIndex >= 0;
 
   if (!state.questionDraft.prompt) {
     showToast("Please enter the question text.");
     return;
   }
 
-  const questionIndex = state.draftQuestions.length + 1;
+  const questionIndex = state.editingQuestionIndex >= 0 ? state.editingQuestionIndex + 1 : state.draftQuestions.length + 1;
   const baseQuestion = {
     id: `q${questionIndex}`,
     type: state.questionDraft.type,
@@ -2197,11 +2286,17 @@ function handleQuestionAdd(event) {
       return;
     }
 
-    state.draftQuestions.push({
+    const nextQuestion = {
       ...baseQuestion,
       options,
       correctAnswer,
-    });
+    };
+
+    if (state.editingQuestionIndex >= 0) {
+      state.draftQuestions.splice(state.editingQuestionIndex, 1, nextQuestion);
+    } else {
+      state.draftQuestions.push(nextQuestion);
+    }
   } else {
     const acceptedAnswers = state.questionDraft.acceptedAnswers
       .split(",")
@@ -2213,19 +2308,32 @@ function handleQuestionAdd(event) {
       return;
     }
 
-    state.draftQuestions.push({
+    const nextQuestion = {
       ...baseQuestion,
       acceptedAnswers,
-    });
+    };
+
+    if (state.editingQuestionIndex >= 0) {
+      state.draftQuestions.splice(state.editingQuestionIndex, 1, nextQuestion);
+    } else {
+      state.draftQuestions.push(nextQuestion);
+    }
   }
 
   state.questionDraft = createEmptyDraft(state.questionDraft.type);
+  state.editingQuestionIndex = -1;
   persistDraftState();
   renderLanding();
   window.requestAnimationFrame(() => {
     document.getElementById("draft-prompt")?.focus();
   });
-  showToast(state.editingGameId ? "Question added. Click Save quiz changes." : "Question added.");
+  showToast(
+    wasEditingQuestion
+      ? "Question updated. Click Save quiz changes."
+      : state.editingGameId
+        ? "Question added. Click Save quiz changes."
+        : "Question added.",
+  );
 }
 
 function handleSaveGameSetup() {
