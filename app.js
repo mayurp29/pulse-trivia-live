@@ -1235,9 +1235,9 @@ function renderPresentationMode() {
     el.app.innerHTML = `
       <section class="presentation-page">
         <div class="presentation-hero-panel">
-          <p class="eyebrow">Presentation Mode</p>
+          <p class="eyebrow">AAHOA Trivia Room</p>
           <h2 class="presentation-title">${escapeHtml(state.game.title)}</h2>
-          <p class="presentation-subtitle">Scan the QR code to join on your phone, then enter your name.</p>
+          <p class="presentation-subtitle">Scan the QR code to open the AAHOA join page, enter your name, and join this room.</p>
           <div class="presentation-room-block">
             <div class="metric-label">Room Code</div>
             <div class="room-code">${escapeHtml(state.game.room_code)}</div>
@@ -1546,7 +1546,7 @@ function renderHostLobbyControls() {
           <br />
           3. They enter their names and join the room.
           <br />
-          4. Start question 1 when everyone is ready.
+          4. Begin the first question when everyone is ready.
         </div>
         <div class="status-strip">
           <strong>Room code:</strong> ${escapeHtml(state.game.room_code)}
@@ -1568,8 +1568,13 @@ function renderHostLobbyControls() {
 
 function renderPlayerLobbyCard() {
   return `
-    <div class="notice">
-      Keep this page open on your phone. The question will appear automatically when the host starts.
+    <div class="player-join-card">
+      <p class="eyebrow">AAHOA Trivia Join</p>
+      <h3>You're in the room</h3>
+      <div class="status-strip"><strong>Room code:</strong> ${escapeHtml(state.game.room_code)}</div>
+      <div class="notice">
+        Stay on this page. The first question will appear automatically once the host begins the round.
+      </div>
     </div>
     <div class="button-row">
       <button class="btn btn-secondary" id="leave-room">Leave room</button>

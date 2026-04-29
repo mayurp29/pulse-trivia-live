@@ -504,6 +504,20 @@ textarea {
   border: 1px solid var(--line);
 }
 
+.player-join-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.player-join-card h3 {
+  margin-bottom: 0;
+}
+
 .question-card {
   padding: 18px;
   border-radius: var(--radius-lg);
