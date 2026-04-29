@@ -1530,10 +1530,37 @@ function renderHostRevealPresentation(question, rankedPlayers) {
 }
 
 function renderHostLobbyControls() {
+  const joinUrl = getJoinUrl(state.game.room_code);
+  const qrImageUrl = getQrImageUrl(state.game.room_code);
   return `
+    <div class="host-join-stage">
+      <div class="host-join-copy">
+        <div class="section-title">
+          <h3>How players join</h3>
+          <span class="tag">Before you start</span>
+        </div>
+        <div class="notice">
+          1. Open the presentation tab on the big screen.
+          <br />
+          2. Ask players to scan the QR code or open the join page.
+          <br />
+          3. They enter their names and join the room.
+          <br />
+          4. Start question 1 when everyone is ready.
+        </div>
+        <div class="status-strip">
+          <strong>Room code:</strong> ${escapeHtml(state.game.room_code)}
+        </div>
+        <div class="tiny muted">${escapeHtml(joinUrl)}</div>
+      </div>
+      <div class="host-join-qr-card">
+        <img class="host-join-qr" src="${qrImageUrl}" alt="QR code to join trivia room" />
+        <div class="tiny muted">Scan to open the join page with the room code prefilled.</div>
+      </div>
+    </div>
     <div class="button-row">
-      <button class="btn btn-primary" id="host-start-game">Start question 1</button>
       <button class="btn btn-secondary" id="host-start-presentation">Open presentation tab</button>
+      <button class="btn btn-primary" id="host-start-game">Start question 1</button>
       <button class="btn btn-secondary" id="leave-room">Back to landing page</button>
     </div>
   `;

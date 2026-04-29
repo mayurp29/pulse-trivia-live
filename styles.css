@@ -469,6 +469,41 @@ textarea {
   margin-top: 16px;
 }
 
+.host-join-stage {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+  align-items: stretch;
+}
+
+.host-join-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.host-join-qr-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.host-join-qr {
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border-radius: 20px;
+  background: #fff;
+  padding: 10px;
+  border: 1px solid var(--line);
+}
+
 .question-card {
   padding: 18px;
   border-radius: var(--radius-lg);
@@ -703,7 +738,8 @@ textarea {
   .question-layout-host,
   .split-row,
   .metric-grid,
-  .presentation-footer {
+  .presentation-footer,
+  .host-join-stage {
     grid-template-columns: 1fr;
   }
 
