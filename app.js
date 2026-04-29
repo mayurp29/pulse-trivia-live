@@ -155,13 +155,22 @@ function createSavedGameRecord(title, questions, id = createId()) {
   };
 }
 
-function mapTemplateRowToSavedGame(row) {
+function normalizeSavedGameRecord(record, fallbackId = createId()) {
   return {
+    id: String(record?.id || fallbackId),
+    title: String(record?.title || "Untitled Quiz").trim() || "Untitled Quiz",
+    questions: Array.isArray(record?.questions) ? deepClone(record.questions) : [],
+    updatedAt: record?.updatedAt || new Date().toISOString(),
+  };
+}
+
+function mapTemplateRowToSavedGame(row) {
+  return normalizeSavedGameRecord({
     id: row.id,
     title: String(row.title || "").trim(),
     questions: Array.isArray(row.questions_json) ? deepClone(row.questions_json) : [],
     updatedAt: row.updated_at || row.created_at || new Date().toISOString(),
-  };
+  }, row.id);
 }
 
 function createSampleGameRecord() {
@@ -170,7 +179,9 @@ function createSampleGameRecord() {
 
 function syncSampleSavedGames(savedGames) {
   const sampleGame = createSampleGameRecord();
-  const others = Array.isArray(savedGames) ? savedGames.filter((game) => game.id !== sampleGame.id) : [];
+  const others = Array.isArray(savedGames)
+    ? savedGames.map((game) => normalizeSavedGameRecord(game)).filter((game) => game.id !== sampleGame.id)
+    : [];
   return [sampleGame, ...others].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 }
 
