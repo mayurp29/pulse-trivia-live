@@ -2170,6 +2170,11 @@ async function restoreSession() {
     return;
   }
 
+  if (requestedRoomCode && !state.currentPlayerId && state.role !== "host" && state.viewMode !== "presentation") {
+    renderLanding();
+    return;
+  }
+
   try {
     const game = await state.adapter.getGame(state.roomCode);
     if (!game) {
