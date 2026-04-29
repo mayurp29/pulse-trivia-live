@@ -761,7 +761,7 @@ function renderLanding() {
               </div>
               <div class="button-row saved-game-actions">
                 <button class="btn btn-primary saved-game-launch" data-game-id="${game.id}" type="button">Launch this game</button>
-                <button class="btn btn-secondary saved-game-edit" data-game-id="${game.id}" type="button">Edit</button>
+                <button class="btn btn-secondary saved-game-edit" data-game-id="${game.id}" type="button">Edit / add questions</button>
                 <button class="btn btn-ghost saved-game-delete" data-game-id="${game.id}" type="button">Delete</button>
               </div>
             </article>
@@ -854,6 +854,15 @@ function renderLanding() {
           <h3>${isEditing ? "Edit game" : "Create game"}</h3>
           <span class="tag">${isEditing ? "Save changes" : "Save quiz"}</span>
         </div>
+        ${
+          isEditing
+            ? `
+              <div class="notice">
+                You are editing a saved quiz. Add more questions below, then click <strong>Save quiz changes</strong>.
+              </div>
+            `
+            : ""
+        }
         <form id="question-builder-form" class="form-row">
           <label>
             Game title
@@ -1109,6 +1118,11 @@ function loadGameIntoEditor(gameId) {
   state.questionDraft = createEmptyDraft();
   persistDraftState();
   renderLanding();
+  window.requestAnimationFrame(() => {
+    document.getElementById("game-editor-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("draft-prompt")?.focus();
+  });
+  showToast("Quiz loaded. Add more questions, then click Save quiz changes.");
 }
 
 function deleteSavedGame(gameId) {
@@ -2208,6 +2222,10 @@ function handleQuestionAdd(event) {
   state.questionDraft = createEmptyDraft(state.questionDraft.type);
   persistDraftState();
   renderLanding();
+  window.requestAnimationFrame(() => {
+    document.getElementById("draft-prompt")?.focus();
+  });
+  showToast(state.editingGameId ? "Question added. Click Save quiz changes." : "Question added.");
 }
 
 function handleSaveGameSetup() {
@@ -2219,7 +2237,7 @@ function handleSaveGameSetup() {
   }
 
   if (!state.draftQuestions.length) {
-    showToast("Add at least one question before saving this game.");
+    showToast("Add at least one question before saving this quiz.");
     return;
   }
 
@@ -2234,7 +2252,7 @@ function handleSaveGameSetup() {
   state.draftQuestions = deepClone(record.questions);
   persistDraftState();
   renderLanding();
-  showToast("Game setup saved.");
+  showToast("Quiz saved.");
 }
 
 async function launchGameFromTemplate(template, hostName) {
